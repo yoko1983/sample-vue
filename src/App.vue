@@ -36,6 +36,7 @@ const runapi = (token) => {
 };
 // 画面遷移時に実行するパターン
 // onMounted(() => {
+//   const token='';
 //   axios.get('https://dev.azure.com/yoko1983/test/_apis/git/repositories', 
 //       { 
 //             auth: {
@@ -82,24 +83,47 @@ const count: Ref<number> = ref<number>(0);
     <!-- <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" /> -->
 
     <div class="wrapper">
-      <HelloWorld msg="You did it!" />
-      <div>
-        token: {{ token }}
-        <ul>
-          <li v-for="repo in results.value">{{ repo.name }}</li>
-        </ul>
+      <HelloWorld msg="Link repositories!" />
+
+      <div class='labelbox'>
+        <label>Token:</label>
       </div>
+
+      <div class='tokenbox'>
+        <input type="text" v-model="token">
+        <button @click="runapi(token)">
+          Display
+        </button>
+      </div>
+      <div v-for="(repo, i) in results.value" :key="i" class='repobox'>
+      <ul>
+        <li>
+        <input
+          :id="'repo.name' + i"
+          type="checkbox"
+          :value="repo.name"
+          v-model="selectedPokes"
+        />
+        <label :for="'repo.name' + i">{{repo.name}}</label>
+        </li>
+      </ul>
+      </div>
+
+      <div class='labelbox'>
+        <label>WorkItem ID:</label>
+      </div>
+      <div class='tokenbox'>
+        <input type="text" v-model="wiid">
+        <button @click="linkWI(wiid)">
+          Link
+        </button>
+      </div>
+
 
       <nav>
         <RouterLink to="/">Home</RouterLink>
         <RouterLink to="/about">About</RouterLink>
       </nav>
-      <div>
-        <input type="text" v-model="token">
-        <button @click="runapi(token)">
-          Run
-        </button>
-      </div>
 
       <div v-if="hasError">
           <article class="message is-danger">
@@ -152,6 +176,46 @@ nav a {
 
 nav a:first-of-type {
   border: 0;
+}
+
+.labelbox {
+	/* padding:10px; */
+	width:500px;
+	margin-top:10px;
+}
+.labelbox label {
+  margin-left: 0.5em;
+  font-size: 1rem;
+}
+
+.tokenbox {
+	width:500px;
+	padding:5px;
+}
+.tokenbox input {
+  margin-left: 1em;
+	width:360px;
+}
+.repobox {
+	padding:0px;
+}
+.repobox ul {
+	width:500px;
+  list-style: none;
+}
+.repobox ul li {
+	width:500px;
+	margin-bottom:5px;
+	padding-left:1em;
+	text-indent:-1em;
+	line-height:1.4;
+}
+.repobox ul li label {
+	width:500px;
+	margin-bottom:5px;
+	padding-left:1em;
+	text-indent:-1em;
+	line-height:1.4;
 }
 
 @media (min-width: 1024px) {
