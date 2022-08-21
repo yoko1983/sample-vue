@@ -120,7 +120,7 @@ const runapi = (token) => {
       </div>
 
       <div class='tokenbox'>
-        <input type="text" v-model="token">
+        <keep-alive><input type="text" v-model="token"></keep-alive>
         <button @click="runapi(token)">
           Display
         </button>
