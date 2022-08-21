@@ -17,11 +17,66 @@ const token: Ref<string> = ref<string>('');
 const results = ref([])
 // const results = ""
 const error = ref([])
+<<<<<<< HEAD
 // ボタンクリック時に実行するパターン
 const runapi = (token) => {
 
 
 
+=======
+const linkedStatus: Ref<string> = ref<string>('');
+const checkboxRepo = ref([])
+
+// ボタンクリック時に実行するパターン
+const linkWorkItem = (token, workItemId, checkboxRepo, repos) => {
+
+  for (let repo_id of checkboxRepo) {
+
+    for (let repo of repos) {
+      if(repo.id == repo_id) {
+        // test.value = repo.name;
+        axios.patch('https://dev.azure.com/yoko1983/test/_apis/wit/workitems/' + workItemId, 
+            [{ 
+              'op': 'add',
+              'path': '/relations/-',
+              'value': {
+                  'rel': 'ArtifactLink',
+                  'url': 'vstfs:///Git/Ref/test/'+ repo.id+ '/GBmain',
+                  'attributes': {
+                      'comment': repo.name,
+                      'name': 'Branch'
+                  }
+              }
+            }],
+            { 
+                  auth: {
+                    password: token
+                  },
+                  headers: { 
+                    'Content-Type': 'application/json-patch+json'
+                  },
+                  params: {
+                    'api-version':'5.1'
+                  }
+            })
+          .then(response => linkedStatus.value = 'success')
+          .catch(error => error)
+          break;
+      }
+
+    }
+    
+
+  }
+
+};
+
+
+
+// ボタンクリック時に実行するパターン
+const runapi = (token) => {
+
+>>>>>>> 9a3e02a... improved work item control
   axios.get('https://dev.azure.com/yoko1983/test/_apis/git/repositories', 
       { 
             auth: {
@@ -50,31 +105,6 @@ const runapi = (token) => {
 //     .catch(error => error)
 // })
 
-// チェックボックスの状態です
-const checkBoxState = reactive({
-  aa: true,
-  bb: false,
-  cc: false,
-  dd: false,
-  ee: false,
-  ff: false,
-  gg: false,
-});
-
-// ボタンが押せるかどうか
-const isButtonEnabled = computed(
-  () =>
-    Object.values(checkBoxState).filter((button: boolean) => button === true)
-      .length >= 3
-);
-
-
-
-
-const count: Ref<number> = ref<number>(0);
-
-
-
 </script>
 
 
@@ -101,8 +131,13 @@ const count: Ref<number> = ref<number>(0);
         <input
           :id="'repo.name' + i"
           type="checkbox"
+<<<<<<< HEAD
           :value="repo.name"
           v-model="selectedPokes"
+=======
+          :value="repo.id"
+          v-model="checkboxRepo"
+>>>>>>> 9a3e02a... improved work item control
         />
         <label :for="'repo.name' + i">{{repo.name}}</label>
         </li>
@@ -113,10 +148,17 @@ const count: Ref<number> = ref<number>(0);
         <label>WorkItem ID:</label>
       </div>
       <div class='tokenbox'>
+<<<<<<< HEAD
         <input type="text" v-model="wiid">
         <button @click="linkWI(wiid)">
+=======
+        <input type="text" v-model="workItemId">
+        <button @click="linkWorkItem(token, workItemId, checkboxRepo, results.value)">
+>>>>>>> 9a3e02a... improved work item control
           Link
         </button>
+        <div class='linkedStatusBox'>{{linkedStatus}}</div>
+
       </div>
 
 
@@ -218,6 +260,10 @@ nav a:first-of-type {
 	line-height:1.4;
 }
 
+.linkedStatusBox {
+  margin-left: 1em;
+}
+
 @media (min-width: 1024px) {
   header {
     display: flex;
@@ -244,4 +290,6 @@ nav a:first-of-type {
     margin-top: 1rem;
   }
 }
+
+
 </style>
