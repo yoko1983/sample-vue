@@ -15,15 +15,7 @@ import { Buffer } from 'buffer'
 const token: Ref<string> = ref<string>('');
 
 const results = ref([])
-// const results = ""
 const error = ref([])
-<<<<<<< HEAD
-// ボタンクリック時に実行するパターン
-const runapi = (token) => {
-
-
-
-=======
 const linkedStatus: Ref<string> = ref<string>('');
 const checkboxRepo = ref([])
 
@@ -76,7 +68,6 @@ const linkWorkItem = (token, workItemId, checkboxRepo, repos) => {
 // ボタンクリック時に実行するパターン
 const runapi = (token) => {
 
->>>>>>> 9a3e02a... improved work item control
   axios.get('https://dev.azure.com/yoko1983/test/_apis/git/repositories', 
       { 
             auth: {
@@ -129,15 +120,10 @@ const runapi = (token) => {
       <ul>
         <li>
         <input
-          :id="'repo.name' + i"
+          :id="'repo.id'"
           type="checkbox"
-<<<<<<< HEAD
-          :value="repo.name"
-          v-model="selectedPokes"
-=======
           :value="repo.id"
           v-model="checkboxRepo"
->>>>>>> 9a3e02a... improved work item control
         />
         <label :for="'repo.name' + i">{{repo.name}}</label>
         </li>
@@ -148,13 +134,8 @@ const runapi = (token) => {
         <label>WorkItem ID:</label>
       </div>
       <div class='tokenbox'>
-<<<<<<< HEAD
-        <input type="text" v-model="wiid">
-        <button @click="linkWI(wiid)">
-=======
         <input type="text" v-model="workItemId">
         <button @click="linkWorkItem(token, workItemId, checkboxRepo, results.value)">
->>>>>>> 9a3e02a... improved work item control
           Link
         </button>
         <div class='linkedStatusBox'>{{linkedStatus}}</div>
