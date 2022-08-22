@@ -3,7 +3,6 @@
 <script setup lang="ts">
 import { RouterLink, RouterView } from 'vue-router'
 import HelloWorld from './components/HelloWorld.vue'
-import TokenFrom from './components/TokenFrom.vue'
 import { inject, provide, ref, VueElement } from 'vue';
 import type { Ref } from 'vue';
 import { onMounted } from "vue"
@@ -16,20 +15,37 @@ interface Repo {
 }
 
 const { cookies } = useCookies();
-const url = cookies.get('vue-ads-url');
-const project = cookies.get('vue-ads-project');
-const token = cookies.get('vue-ads-token');
+
+let url = '';
+if (cookies.get('vue-ads-url') != null) {
+  url = cookies.get('vue-ads-url');
+}
+let project = '';
+if (cookies.get('vue-ads-project') != null) {
+  project = cookies.get('vue-ads-project');
+}
+let token = '';
+if (cookies.get('vue-ads-token') != null) {
+  token = cookies.get('vue-ads-token');
+}
+// const url = cookies.get('vue-ads-url');
+// const project = cookies.get('vue-ads-project');
+// const token = cookies.get('vue-ads-token');
+
 
 
 const results: Ref<Repo[]> = ref([])
-const linkedStatus: Ref<string> = ref<string>('');
+const gettedRepoErrorStatus: Ref<string> = ref<string>('');
+const linkedSuccessStatus: Ref<string> = ref<string>('');
+const linkedErrorStatus: Ref<string> = ref<string>('');
 const linkedSuccessRepos: Ref<string> = ref<string>('');
 const linkedErrorRepos: Ref<string> = ref<string>('');
 const checkboxRepo = ref([])
 const workItemId: Ref<string> = ref<string>('');
 
 const linkWorkItem = (url: string, project: string ,token: string, workItemId: string, checkboxRepo: any, repos: any) => {
-  linkedStatus.value =  '';
+  linkedSuccessStatus.value = '';
+  linkedErrorStatus.value =  '';
   linkedSuccessRepos.value = '';
   linkedErrorRepos.value = '';
   linkWorkItemSingle(url, project, token, workItemId, checkboxRepo, repos);
@@ -98,27 +114,32 @@ const linkWorkItemSingle = async (url: string, project: string ,token: string, w
           //   linkedErrorRepos.value = 'ErrorRepos: '
           // }
           linkedErrorRepos.value = repo.name + ','  + linkedErrorRepos.value;
-          linkedStatus.value = String(error);
+          linkedErrorStatus.value = String(error);
         }
       }
     }
   }
 
   if(linkedErrorRepos.value == '') {
-    linkedStatus.value = 'Success'
+    linkedSuccessStatus.value = 'Success';
+    linkedSuccessRepos.value = '';
+    linkedErrorRepos.value = '';
     cookies.set('vue-ads-url', url);
     cookies.set('vue-ads-project', project);
     cookies.set('vue-ads-token', token);
  } else {
-    linkedErrorRepos.value = 'ErrorRepos: ' + linkedErrorRepos.value
+    linkedSuccessRepos.value = 'SuccessRepos: ' + linkedSuccessRepos.value.substring(0, linkedSuccessRepos.value.length-1);
+    linkedErrorRepos.value = 'ErrorRepos: ' + linkedErrorRepos.value.substring(0, linkedErrorRepos.value.length-1);
  }
- linkedSuccessRepos.value = 'SuccessRepos: ' + linkedSuccessRepos.value
+ 
 
 
 }
 
 // ボタンクリック時に実行するパターン
 const getRepos = (url :string, project :string, token: string) => {
+
+  gettedRepoErrorStatus.value = '';
 
   axios.get(url + '/' + project  + '/_apis/git/repositories', 
       { 
@@ -128,20 +149,23 @@ const getRepos = (url :string, project :string, token: string) => {
             },
             params: {
               'api-version':'5.1'
+            },
+            validateStatus: function (status) {
+              return status == 200;
             }
       })
-    .then(response => getReposWhenSuccess(url, project, token, response))
-    .catch(error => error)
+    .then(function (response) {
+      results.value = response.data.value;
+      cookies.set('vue-ads-url', url);
+      cookies.set('vue-ads-project', project);
+      cookies.set('vue-ads-token', token);
+    })
+    .catch(function (error) {
+      gettedRepoErrorStatus.value = error;
+
+    })
 
 };
-
-const getReposWhenSuccess = (url :string, project :string, token: string, response: any) => {
-  results.value = response.data.value;
-  cookies.set('vue-ads-url', url);
-  cookies.set('vue-ads-project', project);
-  cookies.set('vue-ads-token', token);
-}
-
 
 // 画面遷移時に実行するパターン
 // onMounted(() => {
@@ -197,6 +221,7 @@ const getReposWhenSuccess = (url :string, project :string, token: string, respon
         <button @click="getRepos(url, project, token)">
           Display
         </button>
+        <div class='errorStatusbox'>{{gettedRepoErrorStatus}}</div>
       </div>
 
       <!-- <nav>
@@ -237,9 +262,10 @@ const getReposWhenSuccess = (url :string, project :string, token: string, respon
       <button @click="linkWorkItem(url, project, token, workItemId, checkboxRepo, results)">
         Link
       </button>
-      <div class='linkedStatusBox'>{{linkedStatus}}</div>
-      <div class='linkedStatusBox'>{{linkedSuccessRepos}}</div>
-      <div class='linkedStatusBox'>{{linkedErrorRepos}}</div>
+      <div class='statusbox'>{{linkedSuccessStatus}}</div>
+      <div class='errorStatusbox'>{{linkedErrorStatus}}</div>
+      <div class='statusbox'>{{linkedSuccessRepos}}</div>
+      <div class='errorStatusbox'>{{linkedErrorRepos}}</div>
     </div>
 
   </div>
@@ -324,8 +350,13 @@ nav a:first-of-type {
 	line-height:1.4;
 }
 
-.linkedStatusBox {
+.statusbox {
   margin-left: 1em;
+}
+
+.errorStatusbox {
+  margin-left: 1em;
+  color: red;
 }
 
 @media (min-width: 1024px) {
