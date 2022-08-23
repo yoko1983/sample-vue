@@ -1,15 +1,14 @@
 <script setup lang="ts">
 defineProps<{
-  msg: string
+  title: string,
+  description: string
 }>()
 </script>
 <template>
   <div class="greetings">
-    <h1 class="green">{{ msg }}</h1>
+    <h1 class="green">{{ title }}</h1>
     <h3>
-      You can link repositories to work item.
-      <!-- <a target="_blank" href="https://vitejs.dev/">Vite</a> +
-      <a target="_blank" href="https://vuejs.org/">Vue 3 test</a>. What's next? -->
+      {{ description }}
     </h3>
   </div>
 </template>
