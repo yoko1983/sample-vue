@@ -163,12 +163,6 @@ const getLinkedReposSingleWithAPI = (workItemId: string) => {
         }
       }
 
-      //リポジトリ一覧を昇順ソートする
-      let sortedResults = linkedRepos.value.sort(function(a:Repo, b:Repo) {
-        return (a.name < b.name) ? -1 : 1;
-      });
-      linkedRepos.value = sortedResults;
-
       resolve(linkedRepos.value);
 
     } catch (error) {
@@ -199,6 +193,12 @@ const setLinkedRepoNameForReposSingleWithAPI = () => {
           
         repo.name = responseGit.data.name;
       }
+
+      //リポジトリ一覧を昇順ソートする
+      let sortedResults = linkedRepos.value.sort(function(a:Repo, b:Repo) {
+        return (a.name < b.name) ? -1 : 1;
+      });
+      linkedRepos.value = sortedResults;
 
       resolve(linkedRepos.value);
     } catch (error) {
