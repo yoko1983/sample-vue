@@ -39,7 +39,7 @@ if (cookies.get('vue-ads-token') != null) {
   token = cookies.get('vue-ads-token');
 }
 
-const workItemId:string = '';
+const workItemId: Ref<string> = ref<string>('');
 
 const getRepos = (workItemId: string) => {
   gettedRepoErrorStatus.value = '';
@@ -76,7 +76,7 @@ const getReposSingleWithAPI = (workItemId: string) => {
         if(attributesName == 'Branch') {
           const repoUrl:string = relation.url;
           const urlBaseLen:number = "vstfs:///Git/Ref/".length;
-          const decodeUrl:string = decodeURI(repoUrl);
+          const decodeUrl:string = decodeURIComponent(repoUrl);
           const urlPart:string = decodeUrl.substring(urlBaseLen);
           const urlParts:string[] = urlPart.split('/');
 

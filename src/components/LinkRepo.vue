@@ -37,6 +37,7 @@ const linkedSuccessRepos: Ref<string> = ref<string>('');
 const linkedErrorRepos: Ref<string> = ref<string>('');
 const checkboxRepo = ref([])
 const workItemId: Ref<string> = ref<string>('');
+const debug: Ref<string> = ref<string>('');
 
 const linkWorkItem = (url: string, project: string ,token: string, workItemId: string, checkboxRepo: any, repos: any) => {
   linkedSuccessStatus.value = '';
@@ -51,6 +52,9 @@ const linkWorkItem = (url: string, project: string ,token: string, workItemId: s
 
 const linkWorkItemSingleWithAPI = (url: string, project: string ,token: string, workItemId: string, repo: Repo) => {
   return new Promise(async (resolve, reject) => {
+
+    const repoUrl:string = 'vstfs:///Git/Ref/' + encodeURIComponent(project + '/' + repo.id+ '/GBmaster');
+    debug.value = repoUrl;
     try {
       const response = await axios.patch(url + '/' + project  + '/_apis/wit/workitems/' + workItemId, 
           [{ 
@@ -58,7 +62,7 @@ const linkWorkItemSingleWithAPI = (url: string, project: string ,token: string, 
             'path': '/relations/-',
             'value': {
                 'rel': 'ArtifactLink',
-                'url': 'vstfs:///Git/Ref/test/'+ repo.id+ '/GBmaster',
+                'url': repoUrl,
                 'attributes': {
                     'comment': repo.name,
                     'name': 'Branch'
@@ -236,6 +240,7 @@ const setStatusColor = (status: number) => {
 
       <div class='labelbox'>
         <label>Repositories:</label>
+        {{debug}}
       </div>
 
       <div v-for="repo in repos" class='repobox'>
