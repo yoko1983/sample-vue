@@ -12,18 +12,20 @@ const { cookies } = useCookies();
 
 const isActive: Ref<string> = ref<string>('LinkRepo');
 
-let url = '';
+let url:string = '';
 if (cookies.get('vue-ads-url') != null) {
   url = cookies.get('vue-ads-url');
 }
-let project = '';
+let project:string = '';
 if (cookies.get('vue-ads-project') != null) {
   project = cookies.get('vue-ads-project');
 }
-let token = '';
+let token:string = '';
 if (cookies.get('vue-ads-token') != null) {
   token = cookies.get('vue-ads-token');
 }
+
+
 
 if (url==null || project == null || token ==null) {
   isActive.value = 'Setting'
@@ -32,6 +34,7 @@ if (url==null || project == null || token ==null) {
 const change = (menu: string) => {
   isActive.value = menu
 }
+
 
 </script>
 

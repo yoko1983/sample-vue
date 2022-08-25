@@ -14,7 +14,7 @@ interface WorkItem {
 interface Repo {
   id: string
   name: string
-  diff: string
+  diff: number
   status: number
 }
 
@@ -22,6 +22,9 @@ const repos: Ref<Repo[]> = ref([])
 const gettedRepoErrorStatus: Ref<string> = ref<string>('');
 const debug: Ref<string> = ref<string>('');
 const checkboxRepo = ref([])
+const radioboxBranch = ref([])
+const prTitle: Ref<string> = ref<string>('');
+const prDescription: Ref<string> = ref<string>('');
 
 
 const { cookies } = useCookies();
@@ -44,9 +47,6 @@ const workItemId: Ref<string> = ref<string>('');
 const getRepos = (workItemId: string) => {
   gettedRepoErrorStatus.value = '';
   getReposSingle(workItemId);
-
-
-
 }
 
 const getReposSingleWithAPI = (workItemId: string) => {
@@ -81,55 +81,99 @@ const getReposSingleWithAPI = (workItemId: string) => {
           const urlParts:string[] = urlPart.split('/');
 
           const repo:Repo = {
-            id:'',
+            id:urlParts[1],
             name:'',
-            diff:'',
+            diff:0,
             status:0
           };
 
-          repo.id = urlParts[1];
-          repo.status = 0;
-          repo.diff = 'diff';
-
-          const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id, 
-              { 
-                    auth: {
-                      username: '',
-                      password: token
-                    },
-                    params: {
-                      'api-version':'5.1'
-                    },
-                    validateStatus: function (status) {
-                      return status == 200;
-                    }
-              })
-            
-          repo.name = responseGit.data.name;
           repos.value.push(repo);
         }
       }
 
+      resolve(repos.value);
 
-      resolve(repos);
     } catch (error) {
-      gettedRepoErrorStatus.value = 'Error';
       reject(error);
     }
   });
 
 };
 
+const setRepoNameForReposSingleWithAPI = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      for(let repo of repos.value) {
+
+        const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id, 
+            { 
+                  auth: {
+                    username: '',
+                    password: token
+                  },
+                  params: {
+                    'api-version':'5.1'
+                  },
+                  validateStatus: function (status) {
+                    return status == 200;
+                  }
+            })
+          
+        repo.name = responseGit.data.name;
+      }
+
+      resolve(repos.value);
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+};
+
+const setDiffForReposSingleWithAPI = (targetBranchName:string, sourceBranchName:string, top:number) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      for(let repo of repos.value) {
+
+        const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/diffs/commits', 
+            { 
+                  auth: {
+                    username: '',
+                    password: token
+                  },
+                  params: {
+                    '$top': top,
+                    'baseVersion': targetBranchName,
+                    'targetVersion': sourceBranchName,
+                    'api-version':'5.1'
+                  },
+                  validateStatus: function (status) {
+                    return status == 200;
+                  }
+            })
+          
+        repo.diff = responseGit.data.aheadCount;
+      }
+
+      resolve(repos.value);
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+};
+
+
+
 const getReposSingle = async (workItemId: string) => {
 
   try {
-    const _repos = await getReposSingleWithAPI(workItemId);
+    await getReposSingleWithAPI(workItemId);
+    await setRepoNameForReposSingleWithAPI();
+    await setDiffForReposSingleWithAPI('master','master',1);
 
-    // for(repo of repos.value) {
-    //   debug.value =repo.id;
-    //   repo.name = getRepoName(repo.id);
-    // }
   } catch(error) {
+      gettedRepoErrorStatus.value = String(error);
 
   }
 
@@ -175,24 +219,30 @@ const setStatusColor = (status: number) => {
       return "red";
 }
 
-const setDiffColor = (diff: string) => {
-      if (diff == 'diff') {
-        return "diff_blue";
+const setDiffText = (diff: number) => {
+      if (diff > 0) {
+        return "diff";
+      } else {
+        return "same";
       }
-      if (diff == 'same') {
-        return "diff_silver";
-      }
-      return "red";
+
 }
 
-const isDiff = (diff: string) => {
-      if (diff == 'diff') {
-        return true;
+const setDiffColor = (diff: number) => {
+      if (diff > 0) {
+        return "diff_blue";
+      } else {
+        return "diff_silver";
       }
-      if (diff == 'same') {
+
+}
+
+const isDiff = (diff: number) => {
+      if (diff > 0) {
+        return true;
+      } else {
         return false;
       }
-      return false;
 }
 
 
@@ -204,8 +254,10 @@ const isDiff = (diff: string) => {
 
 
   <div class="main-grid ">
-    <article>
+    <header>
       <Title title="Create pull requests!" description="You can create pull requests with work item."/>
+    </header>
+    <aside>
 
       <div class='labelbox'>
         <label>WorkItem ID:</label>
@@ -215,6 +267,41 @@ const isDiff = (diff: string) => {
         <input type="text" v-model="workItemId">
       </div>
 
+      <div class='labelbox'>
+        <label>Target Branch:</label>
+      </div>
+
+      <div class='radiobox'>
+        <input
+          type="radio"
+          value="master"
+          v-model="radioboxBranch"
+          :checked=true
+        />
+        <label>master</label>
+        <input
+          type="radio"
+          value="test1"
+          v-model="radioboxBranch"
+          :checked=false
+        />
+        <label>test1</label>
+        <input
+          type="radio"
+          value="test2"
+          v-model="radioboxBranch"
+          :checked=false
+        />
+        <label>test2</label>
+        <input
+          type="radio"
+          value="test3"
+          v-model="radioboxBranch"
+          :checked=false
+        />
+        <label>test3</label>
+      </div>
+
       <div class='inputbox'>
         <button @click="getRepos(workItemId)">
           Display
@@ -222,6 +309,32 @@ const isDiff = (diff: string) => {
         <div class='errorStatusbox'>{{gettedRepoErrorStatus}}</div>
       </div>
 
+      <div class='labelbox'>
+        <label>Pull Request Title:</label>
+      </div>
+
+      <div class='inputbox'>
+        <input type="text" v-model="prTitle">
+      </div>
+
+      <div class='labelbox'>
+        <label>Pull Request Description:</label>
+      </div>
+
+      <div class='inputbox'>
+        <input type="text" v-model="prDescription">
+      </div>
+
+      <div class='inputbox'>
+        <button @click="getRepos(workItemId)">
+          CreatePR
+        </button>
+        <div class='errorStatusbox'>{{gettedRepoErrorStatus}}</div>
+        <div class='successStatusbox'>{{debug}}</div>
+      </div>
+
+    </aside>
+    <article>
       <div class='labelbox'>
         <label>Repositories:</label>
       </div>
@@ -234,26 +347,17 @@ const isDiff = (diff: string) => {
             type="checkbox"
             :value="repo.id"
             v-model="checkboxRepo"
-            v-bind:disabled="repo.diff=='same'"
+            v-bind:disabled="repo.diff==0"
             :checked="isDiff(repo.diff)"
           />
           <label :for="'repo.id'">{{repo.name}}</label>
-          <label :for="'repo.id'"  :class="setDiffColor(repo.diff)">{{repo.diff}}</label>
+          <label :for="'repo.id'"  :class="setDiffColor(repo.diff)">{{setDiffText(repo.diff)}}</label>
           <label :for="'repo.id'"  :class="setStatusColor(repo.status)">●</label>
           </li>
         </ul>
       </div>
 
-      <div class='inputbox'>
-        <button @click="getRepos(workItemId)">
-          CreatePR
-        </button>
-        <div class='errorStatusbox'>{{gettedRepoErrorStatus}}</div>
-        <div class='successStatusbox'>Debug: {{debug}}</div>
-      </div>
-
-
-</article>
+    </article>
   </div>
 
 </template>
@@ -304,6 +408,16 @@ header {
 	text-indent:-1em;
 	line-height:1.4;
 }
+.radiobox {
+  margin-left: 10px
+}
+.radiobox input {
+  margin-left: 15px
+}
+.radiobox label {
+  margin-left: 5px
+}
+
 
 .statusbox {
   margin-left: 1em;
@@ -346,14 +460,16 @@ header {
     align-content: start;
   }
 
+  header {
+    grid-area: header;
+  }
+
   aside {
     grid-area: left;
   }
 
   article {
     grid-area: main;
-    -ms-grid-row-align: start;
-    align-self: start;
   }
 }
 
