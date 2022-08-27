@@ -130,7 +130,7 @@ const setRepoNameForReposSingleWithAPI = () => {
 
 };
 
-const setDiffForReposSingleWithAPI = (targetBranchName:string, sourceBranchName:string, top:number) => {
+const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:string, top:number) => {
   return new Promise(async (resolve, reject) => {
     try {
       for(let repo of repos.value) {
@@ -170,7 +170,7 @@ const getReposSingle = async (workItemId: string) => {
   try {
     await getReposSingleWithAPI(workItemId);
     await setRepoNameForReposSingleWithAPI();
-    await setDiffForReposSingleWithAPI('master','master',1);
+    await setDiffForReposSingleWithAPI('mut','master',1);
 
   } catch(error) {
       gettedRepoErrorStatus.value = String(error);
@@ -237,13 +237,6 @@ const setDiffColor = (diff: number) => {
 
 }
 
-const isDiff = (diff: number) => {
-      if (diff > 0) {
-        return true;
-      } else {
-        return false;
-      }
-}
 
 
 </script>
@@ -348,7 +341,7 @@ const isDiff = (diff: number) => {
             :value="repo.id"
             v-model="checkboxRepo"
             v-bind:disabled="repo.diff==0"
-            :checked="isDiff(repo.diff)"
+            :checked="repo.diff>0"
           />
           <label :for="'repo.id'">{{repo.name}}</label>
           <label :for="'repo.id'"  :class="setDiffColor(repo.diff)">{{setDiffText(repo.diff)}}</label>
