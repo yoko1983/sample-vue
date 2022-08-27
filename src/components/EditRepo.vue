@@ -7,6 +7,7 @@ import { onMounted } from "vue"
 import axios from "axios"
 import { useCookies } from "vue3-cookies";
 import Title from '@/components/Title.vue'
+import { debuggerStatement } from '@babel/types';
 
 interface Repo {
   id: string
@@ -49,17 +50,23 @@ const debug: Ref<string> = ref<string>('');
 
 
 
-const delRepoSingleWithAPI = (workItemId:string, linkNum:number) => {
+const delRepoSingleWithAPI = (workItemId:string, linkNums:number[]) => {
   return new Promise(async (resolve, reject) => {
 
+    let requests = [];
+    for(let linkNum of linkNums) {
+      const request = {
+        'op': 'remove',
+        'path': '/relations/' +linkNum
+      };
+
+      requests.push(request)
+
+    }
+
     try {
-      const response = await axios.patch(url + '/' + project  + '/_apis/wit/workitems/' + workItemId, 
-          [
-            { 
-              'op': 'remove',
-              'path': '/relations/' +linkNum
-            }
-          ],
+      const response = await axios.patch(url + '/' + project  + '/_apis/wit/workitems/' + workItemId,
+          requests, 
           { 
                 auth: {
                   username: '',
@@ -90,7 +97,9 @@ const delWIReposSingle = async (workItemId: string) => {
 
   let errorCount:number = 0;
   let _wiRepos = wiRepos.value;
+  let linknums:number[] = [];
 
+  //WIレポジトリを最新化
   await getWIReposSingleWithAPI(workItemId)
     .then((repos) => {
       _wiRepos = repos;
@@ -101,42 +110,31 @@ const delWIReposSingle = async (workItemId: string) => {
       delWiReposErrorStatus.value = String(error);
     });
 
-
+  //削除対象を整理
   for (let repoId of wiReposCheckboxRepo.value) {
 
     for (let repo of _wiRepos) {
       if(repo.id == repoId) {
-
-        try {
-          await delRepoSingleWithAPI(workItemId, repo.linkNum); 
-          await getWIReposSingleWithAPI(workItemId)
-            .then((repos) => {
-              _wiRepos = repos;
-
-            })
-            .catch((error) => {
-              errorCount++;
-              delWiReposErrorStatus.value = String(error);
-            });
-        } catch (error) {
-          errorCount++;
-          delWiReposErrorStatus.value = String(error);
-        }
+        linknums.push(repo.linkNum);
         break;
       }
     }
   }
 
-  try {
-    await getWIReposSingle(workItemId);
-  } catch (error) {
-    delWiReposErrorStatus.value = String(error);
-    errorCount++;
+  //削除
+  if(linknums.length!=0) {
+    try {
+      await delRepoSingleWithAPI(workItemId, linknums); 
+      await getWIReposSingle(workItemId);
+
+    } catch (error) {
+      errorCount++;
+      delWiReposErrorStatus.value = String(error);
+    }
+
   }
 
-  // if(errorCount==0) {
-  //   delWiReposSuccessStatus.value="Success";
-  // }
+
 
 }
 
