@@ -11,7 +11,7 @@ import { useCookies } from "vue3-cookies";
 
 const { cookies } = useCookies();
 
-const isActive: Ref<string> = ref<string>('LinkRepo');
+const isActive: Ref<string> = ref<string>('EditRepo');
 
 let url:string = '';
 if (cookies.get('vue-ads-url') != null) {

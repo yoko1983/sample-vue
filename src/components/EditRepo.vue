@@ -7,7 +7,6 @@ import { onMounted } from "vue"
 import axios from "axios"
 import { useCookies } from "vue3-cookies";
 import Title from '@/components/Title.vue'
-import { debuggerStatement } from '@babel/types';
 
 interface Repo {
   id: string
@@ -42,8 +41,10 @@ const addWiReposSuccessStatus: Ref<string> = ref<string>('');
 const addWiReposErrorStatus: Ref<string> = ref<string>('');
 const delWiReposSuccessStatus: Ref<string> = ref<string>('');
 const delWiReposErrorStatus: Ref<string> = ref<string>('');
-const wiReposCheckboxRepo = ref([])
-const pjReposCheckboxRepo = ref([])
+const updateWiReposSuccessStatus: Ref<string> = ref<string>('');
+const updateWiReposErrorStatus: Ref<string> = ref<string>('');
+const wiReposCheckbox = ref([]);
+const pjReposCheckbox = ref([]);
 const workItemId: Ref<string> = ref<string>('');
 const workItemTitle: Ref<string> = ref<string>('');
 const debug: Ref<string> = ref<string>('');
@@ -92,45 +93,38 @@ const delRepoSingleWithAPI = (workItemId:string, linkNums:number[]) => {
 
 };
 
-// ボタンクリック時に実行するパターン
 const delWIReposSingle = async (workItemId: string) => {
 
-  let errorCount:number = 0;
   let _wiRepos = wiRepos.value;
   let linknums:number[] = [];
 
-  //WIレポジトリを最新化
-  await getWIReposSingleWithAPI(workItemId)
-    .then((repos) => {
-      _wiRepos = repos;
+  try {
+    //WIレポジトリを最新化
+    await getWIReposSingleWithAPI(workItemId)
+      .then((repos) => {
+        _wiRepos = repos;
 
-    })
-    .catch((error) => {
-      errorCount++;
-      delWiReposErrorStatus.value = String(error);
-    });
+      })
 
-  //削除対象を整理
-  for (let repoId of wiReposCheckboxRepo.value) {
+    //削除対象を整理
+    for (let repoId of wiReposCheckbox.value) {
 
-    for (let repo of _wiRepos) {
-      if(repo.id == repoId) {
-        linknums.push(repo.linkNum);
-        break;
+      for (let repo of _wiRepos) {
+        if(repo.id == repoId) {
+          linknums.push(repo.linkNum);
+          break;
+        }
       }
     }
-  }
 
-  //削除
-  if(linknums.length!=0) {
-    try {
+    //削除
+    if(linknums.length!=0) {
       await delRepoSingleWithAPI(workItemId, linknums); 
       await getWIReposSingle(workItemId);
-
-    } catch (error) {
-      errorCount++;
-      delWiReposErrorStatus.value = String(error);
     }
+
+  } catch(error) {
+    delWiReposErrorStatus.value = String(error);
 
   }
 
@@ -144,7 +138,6 @@ const delWIRepos = (workItemId: string) => {
   delWIReposSingle(workItemId);
 
 }
-
 
 
 const addRepoSingleWithAPI = (projectId:string, workItemId: string, repo: Repo) => {
@@ -221,38 +214,24 @@ const getProjectIdSingleWithAPI = () => {
 // ボタンクリック時に実行するパターン
 const addWIReposSingle = async (workItemId: string) => {
 
-  let errorCount:number = 0;
+  try {
+    const projectId:string = String(await getProjectIdSingleWithAPI()); 
 
-  for (let repoId of pjReposCheckboxRepo.value) {
+    for (let repoId of pjReposCheckbox.value) {
 
-    for (let repo of pjRepos.value) {
-      if(repo.id == repoId) {
+      for (let repo of pjRepos.value) {
+        if(repo.id == repoId) {
 
-        try {
-          const projectId:string = String(await getProjectIdSingleWithAPI()); 
-          const response = await addRepoSingleWithAPI(projectId, workItemId, repo); 
-          repo.status = 1;
-        } catch (error) {
-          errorCount++;
-          addWiReposErrorStatus.value = String(error);
-          repo.status = 2;
+            const response = await addRepoSingleWithAPI(projectId, workItemId, repo); 
+            repo.status = 1;
         }
       }
     }
-  }
 
-  try {
     getWIReposSingle(workItemId);
   } catch (error) {
-    errorCount++;
     addWiReposErrorStatus.value = String(error);
   }
-
-  // if(errorCount == 0) {
-  //   addWiReposSuccessStatus.value = 'Success';
-  // }
- 
-
 
 }
 
@@ -298,15 +277,21 @@ const getWIReposSingleWithAPI = (workItemId: string):Promise<Repo[]> => {
             const decodeUrl:string = decodeURIComponent(repoUrl);
             const urlPart:string = decodeUrl.substring(urlBaseLen);
             const urlParts:string[] = urlPart.split('/');
+            const comment:string = relation.attributes.comment;
+            let regexp = new RegExp('(?<=\\[ver:).*?(?=\\])');
+            let version:string = regexp.exec(comment);
+            if(version=='' || version==null) {
+              version='';
+            } 
 
             const repo:Repo = {
-              id:urlParts[1],
-              name:'',
-              diff:0,
-              status:0,
-              version:'',
-              linkNum:linkNum,
-              rev:workItem.rev
+              id: urlParts[1],
+              name: '',
+              diff: 0,
+              status: 0,
+              version: version,
+              linkNum: linkNum,
+              rev: workItem.rev
             };
 
             _wiRepos.push(repo);
@@ -460,6 +445,89 @@ const getWIRepos = (workItemId: string) => {
 }
 
 
+const updateWiReposSingleWithAPI = (workItemId:string, repos:Repo[]) => {
+  return new Promise(async (resolve, reject) => {
+
+    let requests = [];
+    for(let repo of repos) {
+      let comment:string='';
+      if(repo.version=='' || repo.version==null) {
+        comment=repo.name;
+      } else {
+        comment=repo.name + ' [ver:' + repo.version + ']';
+      }
+
+      const request = {
+        'op': 'replace',
+        'path': '/relations/' + repo.linkNum + '/attributes/comment',
+        'value': comment
+      };
+
+      requests.push(request)
+
+    }
+
+    try {
+      const response = await axios.patch(url + '/' + project  + '/_apis/wit/workitems/' + workItemId,
+          requests, 
+          { 
+                auth: {
+                  username: '',
+                  password: token
+                },
+                headers: { 
+                  'Content-Type': 'application/json-patch+json'
+                },
+                params: {
+                  'api-version':'5.1'
+                },
+                validateStatus: function (status) {
+                  return status >= 200;
+                }
+          })
+
+      resolve(response);
+    } catch (error) {
+      updateWiReposErrorStatus.value = String(error);
+      reject(error);
+    }
+  });
+
+};
+
+const updateWIReposSingle = async (workItemId: string) => {
+
+  try {
+    await updateWiReposSingleWithAPI(workItemId, wiRepos.value);
+      // .then((repos) => {
+      //   wiRepos.value = repos;
+      // })
+      // .catch((error) => {
+      //   gettedRepoErrorStatus.value = String(error);
+      // });;
+    await getWIReposSingle(workItemId);
+
+  } catch(error) {
+      updateWiReposErrorStatus.value = String(error);
+
+  }
+
+
+}
+
+const updateWIRepos = (workItemId: string) => {
+  updateWiReposErrorStatus.value = '';
+  updateWIReposSingle(workItemId);
+}
+
+const checkVersionForSetColor = (version: string) => {
+  let regexp = new RegExp('^(\\d+\\.)+(\\d+\\.)+(\\d+\\.)+(\\d+)$');
+  if(version=='' || regexp.test(version)) {
+    return 'background_success';
+  } else {
+    return 'background_error';
+  }
+}
 
 
 const setStatusColor = (status: number) => {
@@ -499,21 +567,25 @@ const setStatusColor = (status: number) => {
         {{debug}}
       </div>
 
-      <div v-for="repo in wiRepos" class='repoBox'>
+      <div v-for="repo, index in wiRepos " class='repoBox'>
         <ul>
           <li>
             <input
               :id="'repo.id'"
               type="checkbox"
               :value="repo.id"
-              v-model="wiReposCheckboxRepo"
+              v-model="wiReposCheckbox"
               :checked=false
             />
             <div class="repoNameBox">
               <label :for="'repo.name'">{{repo.name}}</label>
             </div>
             <div class="versionBox">
-              <input type="text" v-model="repo.version"/>
+              <input
+                type="text" 
+                v-model="wiRepos[index].version"
+                :class="checkVersionForSetColor(wiRepos[index].version)"
+              />
             </div>
           </li>
         </ul>
@@ -522,11 +594,13 @@ const setStatusColor = (status: number) => {
         <button @click="delWIRepos(workItemId)">
           Delete
         </button>
-        <button @click="linkWorkItem(workItemId)">
+        <button @click="updateWIRepos(workItemId)">
           Edit
         </button>
         <div class='statusbox'>{{delWiReposSuccessStatus}}</div>
         <div class='errorStatusbox'>{{delWiReposErrorStatus}}</div>
+        <div class='statusbox'>{{updateWiReposSuccessStatus}}</div>
+        <div class='errorStatusbox'>{{updateWiReposErrorStatus}}</div>
       </div>
 
 
@@ -545,7 +619,7 @@ const setStatusColor = (status: number) => {
             :id="'repo.id'"
             type="checkbox"
             :value="repo.id"
-            v-model="pjReposCheckboxRepo"
+            v-model="pjReposCheckbox"
             :checked=false
             />
             <label>{{repo.name}}</label>
@@ -667,11 +741,18 @@ const setStatusColor = (status: number) => {
   color: blue;
 }
 .green {
-  color: red;
+  color: gleen;
 }
 .red {
-  color: white;
+  color: red;
 }
+.background_error {
+  background-color: #f09199;
+}
+.background_success {
+  background-color: white;
+}
+
 
 @media (min-width: 1024px) {
   .main-grid {
