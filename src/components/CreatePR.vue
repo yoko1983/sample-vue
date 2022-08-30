@@ -15,23 +15,26 @@ interface Repo {
   id: string
   name: string
   diff: number
+  prId: string
   status: number
 }
 
-const branchTarget1: Ref<string> = ref<string>('branch1');
-const branchTarget2: Ref<string> = ref<string>('branch2');
-const branchTarget3: Ref<string> = ref<string>('branch3');
-const branchTarget4: Ref<string> = ref<string>('master');
-const branchSource1: Ref<string> = ref<string>('branch1');
-const branchSource2: Ref<string> = ref<string>('branch2');
-const branchSource3: Ref<string> = ref<string>('branch3');
-const branchSource4: Ref<string> = ref<string>('mut');
+const debug: Ref<string> = ref<string>('');
+
+const branchTarget1:string = 'branch1';
+const branchTarget2:string = 'branch2';
+const branchTarget3:string = 'branch3';
+const branchTarget4:string = 'master';
+const branchSource1:string = 'branch1';
+const branchSource2:string = 'branch2';
+const branchSource3:string = 'branch3';
+const branchSource4:string = 'test_diff';
 
 const repos: Ref<Repo[]> = ref([])
-const gettedRepoErrorStatus: Ref<string> = ref<string>('');
-const debug: Ref<string> = ref<string>('');
-const checkboxRepo = ref([])
-const radioboxBranch = ref('branchTarget2')
+const getRepoErrorStatus: Ref<string> = ref<string>('');
+const createPRErrorStatus: Ref<string> = ref<string>('');
+const wiReposCheckbox = ref([]);
+const radioboxBranch: Ref<string> = ref<string>('branchTarget2');
 const prTitle: Ref<string> = ref<string>('');
 const prDescription: Ref<string> = ref<string>('');
 
@@ -45,15 +48,120 @@ let token:string = cookies.get('vue-ads-token');
 
 const workItemId: Ref<string> = ref<string>('');
 
-const getRepos = (workItemId: string) => {
-  gettedRepoErrorStatus.value = '';
-  getReposSingle(workItemId);
+const createPRSingleWithAPI = 
+  (repo: Repo, sourceBranch:string, targetBranch:string, workItemId: string, prTitle: string, prDescription: string) => {
+  return new Promise(async (resolve, reject) => {
+
+    const request = {
+      "sourceRefName": "refs/heads/" + sourceBranch,
+      "targetRefName": "refs/heads/" + targetBranch,
+      "title": "[" + repo.name + " / " + targetBranch + "] " + prTitle,
+      "description": prDescription,
+      "workItemRefs": [
+          {
+            "id": workItemId,
+            "url": url + '/' + project  + "_apis/wit/workItems/" +workItemId 
+          }
+        ]
+      };
+
+
+    try {
+      const response = await axios.post(url + '/' + project  + '/_apis/git/repositories/' + repo.id +'/pullrequests',
+          request, 
+          { 
+                auth: {
+                  username: '',
+                  password: token
+                },
+                headers: { 
+                  'Content-Type': 'application/json'
+                },
+                params: {
+                  'api-version':'5.1'
+                },
+                validateStatus: function (status) {
+                  return status == 201;
+                }
+          })
+
+      resolve(response);
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+};
+
+const createPRsSingle = async (workItemId: string) => {
+
+  let sourceBranch:string = '';
+  let targetBranch:string = '';
+  if(radioboxBranch.value == "branchTarget1") {
+    sourceBranch = branchSource1,
+    targetBranch = branchTarget1;
+  }
+  else if(radioboxBranch.value == "branchTarget2") {
+    sourceBranch = branchSource2,
+    targetBranch = branchTarget2;
+  }
+  else if(radioboxBranch.value == "branchTarget3") {
+    sourceBranch = branchSource3,
+    targetBranch = branchTarget3;
+  }
+  else if(radioboxBranch.value == "branchTarget4") {
+    sourceBranch = branchSource4,
+    targetBranch = branchTarget4;
+  }
+
+  for (let repoId of wiReposCheckbox.value) {
+
+    for (let repo of repos.value) {
+
+      if(repo.id == repoId) {
+        try {
+          const response:any = 
+            await createPRSingleWithAPI(
+                                  repo, 
+                                  sourceBranch, 
+                                  targetBranch, 
+                                  workItemId, 
+                                  prTitle.value, 
+                                  prDescription.value); 
+
+          const prUrl:string = response.data.artifactId;
+          const urlBaseLen:number = "vstfs:///Git/PullRequestId/".length;
+          const decodeUrl:string = decodeURIComponent(prUrl);
+          const urlPart:string = decodeUrl.substring(urlBaseLen);
+          const urlParts:string[] = urlPart.split('/');
+          repo.prId=urlParts[2];
+          repo.status=1;
+        } catch(error) {
+          createPRErrorStatus.value = String(error);
+          repo.status=2;
+        }
+        break;
+      }
+    }
+  }
+
+
+
+
 }
+
+const createPRs = (workItemId: string) => {
+  createPRErrorStatus.value =  '';
+  createPRsSingle(workItemId);
+
+}
+
+
 
 const getReposSingleWithAPI = (workItemId: string) => {
   return new Promise(async (resolve, reject) => {
     try {
-      gettedRepoErrorStatus.value = '';
+      getRepoErrorStatus.value = '';
       repos.value = [];
 
       const response = await axios.get(url + '/' + project  + '/_apis/wit/workitems/' + workItemId, 
@@ -85,6 +193,7 @@ const getReposSingleWithAPI = (workItemId: string) => {
             id:urlParts[1],
             name:'',
             diff:0,
+            prId:'',
             status:0
           };
 
@@ -122,6 +231,9 @@ const setRepoNameForReposSingleWithAPI = () => {
           
         repo.name = responseGit.data.name;
       }
+      repos.value = repos.value.sort(function(a:Repo, b:Repo) {
+        return (a.name < b.name) ? -1 : 1;
+      });
 
       resolve(repos.value);
     } catch (error) {
@@ -133,32 +245,32 @@ const setRepoNameForReposSingleWithAPI = () => {
 
 const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:string, top:number) => {
   return new Promise(async (resolve, reject) => {
-    try {
       for(let repo of repos.value) {
+        try {
 
-        const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/diffs/commits', 
-            { 
-                  auth: {
-                    username: '',
-                    password: token
-                  },
-                  params: {
-                    '$top': top,
-                    'baseVersion': targetBranchName,
-                    'targetVersion': sourceBranchName,
-                    'api-version':'5.1'
-                  },
-                  validateStatus: function (status) {
-                    return status == 200;
-                  }
-            })
+          const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/diffs/commits', 
+              { 
+                    auth: {
+                      username: '',
+                      password: token
+                    },
+                    params: {
+                      '$top': top,
+                      'baseVersion': targetBranchName,
+                      'targetVersion': sourceBranchName,
+                      'api-version':'5.1'
+                    },
+                    validateStatus: function (status) {
+                      return status == 200;
+                    }
+              })
+          repo.diff = responseGit.data.aheadCount;
+          resolve(repos.value);
+        } catch (error) {
+          reject(error);
           
-        repo.diff = responseGit.data.aheadCount;
-      }
+        }
 
-      resolve(repos.value);
-    } catch (error) {
-      reject(error);
     }
   });
 
@@ -171,45 +283,33 @@ const getReposSingle = async (workItemId: string) => {
   try {
     await getReposSingleWithAPI(workItemId);
     await setRepoNameForReposSingleWithAPI();
-    await setDiffForReposSingleWithAPI('mut','master',1);
+    if(radioboxBranch.value == "branchTarget1") {
+      await setDiffForReposSingleWithAPI(branchSource1, branchTarget1, 1);
+    }
+    else if(radioboxBranch.value == "branchTarget2") {
+      await setDiffForReposSingleWithAPI(branchSource2, branchTarget2, 1);
+    }
+    else if(radioboxBranch.value == "branchTarget3") {
+      await setDiffForReposSingleWithAPI(branchSource3, branchTarget3, 1);
+    }
+    else if(radioboxBranch.value == "branchTarget4") {
+      await setDiffForReposSingleWithAPI(branchSource4, branchTarget4, 1);
+    }
 
-    debug.value = radioboxBranch;
 
   } catch(error) {
-      gettedRepoErrorStatus.value = String(error);
+      getRepoErrorStatus.value = String(error);
 
   }
 
 
 }
 
+const getRepos = (workItemId: string) => {
+  getRepoErrorStatus.value = '';
+  getReposSingle(workItemId);
+}
 
-
-const getRepoName = (repoId:string) => {
-
-  gettedRepoErrorStatus.value = '';
-
-  axios.get(url + '/' + project  + '/_apis/git/repositories/' + repoId, 
-      { 
-            auth: {
-              username: '',
-              password: token
-            },
-            params: {
-              'api-version':'5.1'
-            },
-            validateStatus: function (status) {
-              return status == 200;
-            }
-      })
-    .then(function (response) {
-      return response.data.name;
-    })
-    .catch(function (error) {
-      gettedRepoErrorStatus.value = error;
-
-    })
-};
 
 
 const setStatusColor = (status: number) => {
@@ -217,10 +317,10 @@ const setStatusColor = (status: number) => {
         return "blue";
       }
       if (status == 2) {
-        return "green";
+        return "red";
       }
-      return "red";
 }
+
 
 const setDiffText = (diff: number) => {
       if (diff > 0) {
@@ -270,30 +370,26 @@ const setDiffColor = (diff: number) => {
       <div class='radiobox'>
         <input
           type="radio"
-          value="master"
           v-model="radioboxBranch"
-          :checked=false
+          value="branchTarget1"
         />
         <label>{{branchTarget1}}</label>
         <input
           type="radio"
-          value="branchTarget2"
           v-model="radioboxBranch"
-          :checked=true
+          value="branchTarget2"
         />
         <label>{{branchTarget2}}</label>
         <input
           type="radio"
-          value="test2"
           v-model="radioboxBranch"
-          :checked=false
+          value="branchTarget3"
         />
         <label>{{branchTarget3}}</label>
         <input
           type="radio"
-          value="test3"
           v-model="radioboxBranch"
-          :checked=false
+          value="branchTarget4"
         />
         <label>{{branchTarget4}}</label>
       </div>
@@ -302,7 +398,7 @@ const setDiffColor = (diff: number) => {
         <button @click="getRepos(workItemId)">
           Display
         </button>
-        <div class='errorStatusbox'>{{gettedRepoErrorStatus}}</div>
+        <div class='errorStatusbox'>{{getRepoErrorStatus}}</div>
       </div>
 
       <div class='labelbox'>
@@ -322,10 +418,10 @@ const setDiffColor = (diff: number) => {
       </div>
 
       <div class='inputbox'>
-        <button @click="getRepos(workItemId)">
+        <button @click="createPRs(workItemId)">
           CreatePR
         </button>
-        <div class='errorStatusbox'>{{gettedRepoErrorStatus}}</div>
+        <div class='errorStatusbox'>{{createPRErrorStatus}}</div>
         <div class='successStatusbox'>{{debug}}</div>
       </div>
 
@@ -342,13 +438,25 @@ const setDiffColor = (diff: number) => {
             :id="'repo.id'"
             type="checkbox"
             :value="repo.id"
-            v-model="checkboxRepo"
+            v-model="wiReposCheckbox"
             v-bind:disabled="repo.diff==0"
             :checked="repo.diff>0"
+            @waiting="repo.diff>0"
           />
           <label :for="'repo.id'">{{repo.name}}</label>
-          <label :for="'repo.id'"  :class="setDiffColor(repo.diff)">{{setDiffText(repo.diff)}}</label>
-          <label :for="'repo.id'"  :class="setStatusColor(repo.status)">●</label>
+          <label :for="'repo.id'"  :class="setDiffColor(repo.diff)">
+            {{setDiffText(repo.diff)}}
+          </label>
+          <label :for="'repo.id'"  :class="setStatusColor(repo.status)" >
+            <div class="prStatusBox" v-show="repo.status==1">
+              <a :href="url + project + '/_git/app/pullrequest/' + repo.prId + '?_a=overview'" target="_blank">
+                {{repo.prId}}
+              </a>
+            </div>
+            <div class="prStatusBox" v-show="repo.status==2">
+              NG
+            </div>
+          </label>
           </li>
         </ul>
       </div>
@@ -414,6 +522,10 @@ header {
   margin-left: 5px
 }
 
+.prStatusBox {
+  margin-left: 10px;
+  display: inline-block; 
+}
 
 .statusbox {
   margin-left: 1em;
@@ -429,9 +541,11 @@ header {
 }
 .blue {
   color: blue;
+  font-size: 90%;
 }
 .red {
-  color: white;
+  color: red;
+  font-size: 80%;
 }
 .diff_silver {
   color: silver;
