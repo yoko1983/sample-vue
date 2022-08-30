@@ -17,18 +17,9 @@ interface Repo {
 
 const { cookies } = useCookies();
 
-let url = '';
-if (cookies.get('vue-ads-url') != null) {
-  url = cookies.get('vue-ads-url');
-}
-let project = '';
-if (cookies.get('vue-ads-project') != null) {
-  project = cookies.get('vue-ads-project');
-}
-let token = '';
-if (cookies.get('vue-ads-token') != null) {
-  token = cookies.get('vue-ads-token');
-}
+let url:string = cookies.get('vue-ads-url');
+let project:string = cookies.get('vue-ads-project');
+let token:string = cookies.get('vue-ads-token');
 
 const repos: Ref<Repo[]> = ref([]);
 const linkedRepos: Ref<Repo[]> = ref([]);

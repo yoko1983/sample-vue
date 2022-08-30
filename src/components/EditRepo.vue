@@ -18,20 +18,14 @@ interface Repo {
   rev: string
 }
 
+const debug: Ref<string> = ref<string>('');
+
 const { cookies } = useCookies();
 
-let url = '';
-if (cookies.get('vue-ads-url') != null) {
-  url = cookies.get('vue-ads-url');
-}
-let project = '';
-if (cookies.get('vue-ads-project') != null) {
-  project = cookies.get('vue-ads-project');
-}
-let token = '';
-if (cookies.get('vue-ads-token') != null) {
-  token = cookies.get('vue-ads-token');
-}
+
+let url:string = cookies.get('vue-ads-url');
+let project:string = cookies.get('vue-ads-project');
+let token:string = cookies.get('vue-ads-token');
 
 const pjRepos: Ref<Repo[]> = ref([]);
 const wiRepos: Ref<Repo[]> = ref([]);
@@ -47,7 +41,6 @@ const wiReposCheckbox = ref([]);
 const pjReposCheckbox = ref([]);
 const workItemId: Ref<string> = ref<string>('');
 const workItemTitle: Ref<string> = ref<string>('');
-const debug: Ref<string> = ref<string>('');
 
 
 
@@ -279,8 +272,8 @@ const getWIReposSingleWithAPI = (workItemId: string):Promise<Repo[]> => {
             const urlParts:string[] = urlPart.split('/');
             const comment:string = relation.attributes.comment;
             let regexp = new RegExp('(?<=\\[ver:).*?(?=\\])');
-            let version:string = regexp.exec(comment);
-            if(version=='' || version==null) {
+            let version:string = String(regexp.exec(comment));
+            if(version=='' || version==null || version=='null') {
               version='';
             } 
 

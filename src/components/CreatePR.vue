@@ -18,29 +18,30 @@ interface Repo {
   status: number
 }
 
+const branchTarget1: Ref<string> = ref<string>('branch1');
+const branchTarget2: Ref<string> = ref<string>('branch2');
+const branchTarget3: Ref<string> = ref<string>('branch3');
+const branchTarget4: Ref<string> = ref<string>('master');
+const branchSource1: Ref<string> = ref<string>('branch1');
+const branchSource2: Ref<string> = ref<string>('branch2');
+const branchSource3: Ref<string> = ref<string>('branch3');
+const branchSource4: Ref<string> = ref<string>('mut');
+
 const repos: Ref<Repo[]> = ref([])
 const gettedRepoErrorStatus: Ref<string> = ref<string>('');
 const debug: Ref<string> = ref<string>('');
 const checkboxRepo = ref([])
-const radioboxBranch = ref([])
+const radioboxBranch = ref('branchTarget2')
 const prTitle: Ref<string> = ref<string>('');
 const prDescription: Ref<string> = ref<string>('');
 
 
+
 const { cookies } = useCookies();
 
-let url = '';
-if (cookies.get('vue-ads-url') != null) {
-  url = cookies.get('vue-ads-url');
-}
-let project = '';
-if (cookies.get('vue-ads-project') != null) {
-  project = cookies.get('vue-ads-project');
-}
-let token = '';
-if (cookies.get('vue-ads-token') != null) {
-  token = cookies.get('vue-ads-token');
-}
+let url:string = cookies.get('vue-ads-url');
+let project:string = cookies.get('vue-ads-project');
+let token:string = cookies.get('vue-ads-token');
 
 const workItemId: Ref<string> = ref<string>('');
 
@@ -172,6 +173,8 @@ const getReposSingle = async (workItemId: string) => {
     await setRepoNameForReposSingleWithAPI();
     await setDiffForReposSingleWithAPI('mut','master',1);
 
+    debug.value = radioboxBranch;
+
   } catch(error) {
       gettedRepoErrorStatus.value = String(error);
 
@@ -269,30 +272,30 @@ const setDiffColor = (diff: number) => {
           type="radio"
           value="master"
           v-model="radioboxBranch"
-          :checked=true
-        />
-        <label>master</label>
-        <input
-          type="radio"
-          value="test1"
-          v-model="radioboxBranch"
           :checked=false
         />
-        <label>test1</label>
+        <label>{{branchTarget1}}</label>
+        <input
+          type="radio"
+          value="branchTarget2"
+          v-model="radioboxBranch"
+          :checked=true
+        />
+        <label>{{branchTarget2}}</label>
         <input
           type="radio"
           value="test2"
           v-model="radioboxBranch"
           :checked=false
         />
-        <label>test2</label>
+        <label>{{branchTarget3}}</label>
         <input
           type="radio"
           value="test3"
           v-model="radioboxBranch"
           :checked=false
         />
-        <label>test3</label>
+        <label>{{branchTarget4}}</label>
       </div>
 
       <div class='inputbox'>
