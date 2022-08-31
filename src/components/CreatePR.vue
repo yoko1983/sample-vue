@@ -440,7 +440,7 @@ const setDiffColor = (diff: number) => {
             :value="repo.id"
             v-model="wiReposCheckbox"
             v-bind:disabled="repo.diff==0"
-            :checked="repo.diff>0"
+            v-bind:checked="repo.diff>0"
             @waiting="repo.diff>0"
           />
           <label :for="'repo.id'">{{repo.name}}</label>
