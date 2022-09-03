@@ -11,11 +11,11 @@ interface WorkItem {
   title: string 
 }
 
-interface Repo {
+interface PR {
   id: string
-  name: string
-  diff: number
-  prId: string
+  url: string
+  title: string
+  description: string
   status: number
 }
 
@@ -30,15 +30,10 @@ const branchSource2:string = 'branch2';
 const branchSource3:string = 'branch3';
 const branchSource4:string = 'test_diff';
 
-const repos: Ref<Repo[]> = ref([])
-const getRepoErrorStatus: Ref<string> = ref<string>('');
-const createPRErrorStatus: Ref<string> = ref<string>('');
+const prs: Ref<PR[]> = ref([])
+const getPRErrorStatus: Ref<string> = ref<string>('');
+const updatePRErrorStatus: Ref<string> = ref<string>('');
 const wiReposCheckbox = ref([]);
-const radioboxBranch: Ref<string> = ref<string>('branchTarget2');
-const prTitle: Ref<string> = ref<string>('');
-const prDescription: Ref<string> = ref<string>('');
-
-
 
 const { cookies } = useCookies();
 
@@ -48,15 +43,11 @@ let token:string = cookies.get('vue-ads-token');
 
 const workItemId: Ref<string> = ref<string>('');
 
-const createPRSingleWithAPI = 
-  (repo: Repo, sourceBranch:string, targetBranch:string, workItemId: string, prTitle: string, prDescription: string) => {
+const updatePRSingleWithAPI = 
+  (repo: PR, workItemId: string) => {
   return new Promise(async (resolve, reject) => {
 
     const request = {
-      "sourceRefName": "refs/heads/" + sourceBranch,
-      "targetRefName": "refs/heads/" + targetBranch,
-      "title": "[" + repo.name + " / " + targetBranch + "] " + prTitle,
-      "description": prDescription,
       "workItemRefs": [
           {
             "id": workItemId,
@@ -95,39 +86,14 @@ const createPRSingleWithAPI =
 
 const createPRsSingle = async (workItemId: string) => {
 
-  let sourceBranch:string = '';
-  let targetBranch:string = '';
-  if(radioboxBranch.value == "branchTarget1") {
-    sourceBranch = branchSource1,
-    targetBranch = branchTarget1;
-  }
-  else if(radioboxBranch.value == "branchTarget2") {
-    sourceBranch = branchSource2,
-    targetBranch = branchTarget2;
-  }
-  else if(radioboxBranch.value == "branchTarget3") {
-    sourceBranch = branchSource3,
-    targetBranch = branchTarget3;
-  }
-  else if(radioboxBranch.value == "branchTarget4") {
-    sourceBranch = branchSource4,
-    targetBranch = branchTarget4;
-  }
-
   for (let repoId of wiReposCheckbox.value) {
 
-    for (let repo of repos.value) {
+    for (let repo of prs.value) {
 
       if(repo.id == repoId) {
         try {
           const response:any = 
-            await createPRSingleWithAPI(
-                                  repo, 
-                                  sourceBranch, 
-                                  targetBranch, 
-                                  workItemId, 
-                                  prTitle.value, 
-                                  prDescription.value); 
+            await updatePRSingleWithAPI(repo, workItemId); 
 
           const prUrl:string = response.data.artifactId;
           const urlBaseLen:number = "vstfs:///Git/PullRequestId/".length;
@@ -137,7 +103,7 @@ const createPRsSingle = async (workItemId: string) => {
           repo.prId=urlParts[2];
           repo.status=1;
         } catch(error) {
-          createPRErrorStatus.value = String(error);
+          updatePRErrorStatus.value = String(error);
           repo.status=2;
         }
         break;
@@ -151,18 +117,18 @@ const createPRsSingle = async (workItemId: string) => {
 }
 
 const createPRs = (workItemId: string) => {
-  createPRErrorStatus.value =  '';
+  updatePRErrorStatus.value =  '';
   createPRsSingle(workItemId);
 
 }
 
 
 
-const getReposSingleWithAPI = (workItemId: string) => {
+const getPRsSingleWithAPI = (workItemId: string) => {
   return new Promise(async (resolve, reject) => {
     try {
-      getRepoErrorStatus.value = '';
-      repos.value = [];
+      getPRErrorStatus.value = '';
+      prs.value = [];
 
       const response = await axios.get(url + '/' + project  + '/_apis/wit/workitems/' + workItemId, 
           { 
@@ -189,7 +155,7 @@ const getReposSingleWithAPI = (workItemId: string) => {
           const urlPart:string = decodeUrl.substring(urlBaseLen);
           const urlParts:string[] = urlPart.split('/');
 
-          const repo:Repo = {
+          const repo:PR = {
             id:urlParts[1],
             name:'',
             diff:0,
@@ -197,11 +163,11 @@ const getReposSingleWithAPI = (workItemId: string) => {
             status:0
           };
 
-          repos.value.push(repo);
+          prs.value.push(repo);
         }
       }
 
-      resolve(repos.value);
+      resolve(prs.value);
 
     } catch (error) {
       reject(error);
@@ -213,7 +179,7 @@ const getReposSingleWithAPI = (workItemId: string) => {
 const setRepoNameForReposSingleWithAPI = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      for(let repo of repos.value) {
+      for(let repo of prs.value) {
 
         const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id, 
             { 
@@ -231,11 +197,11 @@ const setRepoNameForReposSingleWithAPI = () => {
           
         repo.name = responseGit.data.name;
       }
-      repos.value = repos.value.sort(function(a:Repo, b:Repo) {
+      prs.value = prs.value.sort(function(a:PR, b:PR) {
         return (a.name < b.name) ? -1 : 1;
       });
 
-      resolve(repos.value);
+      resolve(prs.value);
     } catch (error) {
       reject(error);
     }
@@ -245,7 +211,7 @@ const setRepoNameForReposSingleWithAPI = () => {
 
 const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:string, top:number) => {
   return new Promise(async (resolve, reject) => {
-      for(let repo of repos.value) {
+      for(let repo of prs.value) {
         try {
 
           const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/diffs/commits', 
@@ -265,7 +231,7 @@ const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:
                     }
               })
           repo.diff = responseGit.data.aheadCount;
-          resolve(repos.value);
+          resolve(prs.value);
         } catch (error) {
           reject(error);
           
@@ -280,36 +246,24 @@ const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:
 
 
 
-const getReposSingle = async (workItemId: string) => {
+const getPRsSingle = async (workItemId: string) => {
 
   try {
-    await getReposSingleWithAPI(workItemId);
+    await getPRsSingleWithAPI(workItemId);
     await setRepoNameForReposSingleWithAPI();
-    if(radioboxBranch.value == "branchTarget1") {
-      await setDiffForReposSingleWithAPI(branchSource1, branchTarget1, 1);
-    }
-    else if(radioboxBranch.value == "branchTarget2") {
-      await setDiffForReposSingleWithAPI(branchSource2, branchTarget2, 1);
-    }
-    else if(radioboxBranch.value == "branchTarget3") {
-      await setDiffForReposSingleWithAPI(branchSource3, branchTarget3, 1);
-    }
-    else if(radioboxBranch.value == "branchTarget4") {
-      await setDiffForReposSingleWithAPI(branchSource4, branchTarget4, 1);
-    }
 
 
   } catch(error) {
-      getRepoErrorStatus.value = String(error);
+      getPRErrorStatus.value = String(error);
 
   }
 
 
 }
 
-const getRepos = (workItemId: string) => {
-  getRepoErrorStatus.value = '';
-  getReposSingle(workItemId);
+const getPRs = (workItemId: string) => {
+  getPRErrorStatus.value = '';
+  getPRsSingle(workItemId);
 }
 
 
@@ -353,7 +307,7 @@ const setDiffColor = (diff: number) => {
 
   <div class="main-grid ">
     <header>
-      <Title title="Create pull requests!" description="You can create pull requests with work item."/>
+      <Title title="Merge pull requests!" description="You can merge pull requests with work item."/>
     </header>
     <aside>
 
@@ -365,75 +319,20 @@ const setDiffColor = (diff: number) => {
         <input type="text" v-model="workItemId">
       </div>
 
-      <div class='labelbox'>
-        <label>Target Branch:</label>
-      </div>
-
-      <div class='radiobox'>
-        <input
-          type="radio"
-          v-model="radioboxBranch"
-          value="branchTarget1"
-        />
-        <label>{{branchTarget1}}</label>
-        <input
-          type="radio"
-          v-model="radioboxBranch"
-          value="branchTarget2"
-        />
-        <label>{{branchTarget2}}</label>
-        <input
-          type="radio"
-          v-model="radioboxBranch"
-          value="branchTarget3"
-        />
-        <label>{{branchTarget3}}</label>
-        <input
-          type="radio"
-          v-model="radioboxBranch"
-          value="branchTarget4"
-        />
-        <label>{{branchTarget4}}</label>
-      </div>
-
       <div class='inputbox'>
-        <button @click="getRepos(workItemId)">
+        <button @click="getPRs(workItemId)">
           Display
         </button>
-        <div class='errorStatusbox'>{{getRepoErrorStatus}}</div>
-      </div>
-
-      <div class='labelbox'>
-        <label>Pull Request Title:</label>
-      </div>
-
-      <div class='inputbox'>
-        <input type="text" v-model="prTitle">
-      </div>
-
-      <div class='labelbox'>
-        <label>Pull Request Description:</label>
-      </div>
-
-      <div class='inputbox'>
-        <input type="text" v-model="prDescription">
-      </div>
-
-      <div class='inputbox'>
-        <button @click="createPRs(workItemId); ">
-          CreatePR
-        </button>
-        <div class='errorStatusbox'>{{createPRErrorStatus}}</div>
-        <div class='successStatusbox'>{{debug}}</div>
+        <div class='errorStatusbox'>{{getPRErrorStatus}}</div>
       </div>
 
     </aside>
     <article>
       <div class='labelbox'>
-        <label>Repositories:</label>
+        <label>Pull Requests:</label>
       </div>
 
-      <div v-for="repo in repos" class='repobox'>
+      <div v-for="repo in prs" class='repobox'>
         <ul>
           <li>
           <input
@@ -460,6 +359,17 @@ const setDiffColor = (diff: number) => {
           </label>
           </li>
         </ul>
+      </div>
+
+      <div class='inputbox'>
+        <button @click="createPRs(workItemId); ">
+          ApprovePRs
+        </button>
+        <button @click="createPRs(workItemId); ">
+          MergePRs
+        </button>
+        <div class='errorStatusbox'>{{updatePRErrorStatus}}</div>
+        <div class='successStatusbox'>{{debug}}</div>
       </div>
 
     </article>
