@@ -568,7 +568,6 @@ const setStatusColor = (status: number) => {
               type="checkbox"
               :value="repo.id"
               v-model="wiReposCheckbox"
-              :checked=false
             />
             <div class="repoNameBox">
               <label :for="'repo.name'">{{repo.name}}</label>
@@ -613,7 +612,6 @@ const setStatusColor = (status: number) => {
             type="checkbox"
             :value="repo.id"
             v-model="pjReposCheckbox"
-            :checked=false
             />
             <label>{{repo.name}}</label>
           </div>
