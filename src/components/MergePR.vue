@@ -13,27 +13,23 @@ interface WorkItem {
 
 interface PR {
   id: string
+  repoId: string
+  repoName: string
   url: string
   title: string
   description: string
-  status: number
+  status: string
+  mergeStatus: string
+  soruceBranch: string
+  targetBranch: string
 }
 
 const debug: Ref<string> = ref<string>('');
 
-const branchTarget1:string = 'branch1';
-const branchTarget2:string = 'branch2';
-const branchTarget3:string = 'branch3';
-const branchTarget4:string = 'master';
-const branchSource1:string = 'branch1';
-const branchSource2:string = 'branch2';
-const branchSource3:string = 'branch3';
-const branchSource4:string = 'test_diff';
-
 const prs: Ref<PR[]> = ref([])
 const getPRErrorStatus: Ref<string> = ref<string>('');
 const updatePRErrorStatus: Ref<string> = ref<string>('');
-const wiReposCheckbox = ref([]);
+const wiPRsCheckbox = ref([]);
 
 const { cookies } = useCookies();
 
@@ -86,7 +82,7 @@ const updatePRSingleWithAPI =
 
 const createPRsSingle = async (workItemId: string) => {
 
-  for (let repoId of wiReposCheckbox.value) {
+  for (let repoId of wiPRsCheckbox.value) {
 
     for (let repo of prs.value) {
 
@@ -123,6 +119,73 @@ const createPRs = (workItemId: string) => {
 }
 
 
+const approvePRSingleWithAPI = (pr: PR) => {
+  return new Promise(async (resolve, reject) => {
+
+    try {
+      const response = await axios.patch(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' +pr.id, 
+          [{ 
+            'op': 'add',
+            'path': '/relations/-',
+            'value': {
+                'rel': 'ArtifactLink',
+                'url': repoUrl,
+                'attributes': {
+                    'comment': repo.name,
+                    'name': 'Branch'
+                }
+            }
+          }],
+          { 
+                auth: {
+                  username: '',
+                  password: token
+                },
+                headers: { 
+                  'Content-Type': 'application/json-patch+json'
+                },
+                params: {
+                  'api-version':'5.1'
+                },
+                validateStatus: function (status) {
+                  return status == 200;
+                }
+          })
+
+      resolve(response);
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+};
+
+// ボタンクリック時に実行するパターン
+const approvePRsSingle = async () => {
+
+  try {
+
+    for (let prId of wiPRsCheckbox.value) {
+      for (let pr of prs.value) {
+        if(prId==pr.id) {
+          const response = await approvePRSingleWithAPI(pr); 
+          break;
+        }
+      }
+    }
+
+  } catch (error) {
+    updatePRErrorStatus.value = String(error);
+  }
+
+}
+
+const approvePRs = () => {
+  updatePRErrorStatus.value =  '';
+  approvePRsSingle();
+
+}
+
 
 const getPRsSingleWithAPI = (workItemId: string) => {
   return new Promise(async (resolve, reject) => {
@@ -148,22 +211,27 @@ const getPRsSingleWithAPI = (workItemId: string) => {
       const workItem = response.data;
       for(let relation of workItem.relations) {
         const attributesName = relation.attributes.name;
-        if(attributesName == 'Branch') {
+        if(attributesName == 'Pull Request') {
           const repoUrl:string = relation.url;
           const urlBaseLen:number = "vstfs:///Git/Ref/".length;
           const decodeUrl:string = decodeURIComponent(repoUrl);
           const urlPart:string = decodeUrl.substring(urlBaseLen);
           const urlParts:string[] = urlPart.split('/');
 
-          const repo:PR = {
-            id:urlParts[1],
-            name:'',
-            diff:0,
-            prId:'',
-            status:0
+          const pr:PR = {
+            id:urlParts[3],
+            repoId:urlParts[2],
+            repoName:'',
+            url:'',
+            title:'',
+            description:'',
+            status:'',
+            mergeStatus:'',
+            soruceBranch:'',
+            targetBranch:''
           };
 
-          prs.value.push(repo);
+          prs.value.push(pr);
         }
       }
 
@@ -179,9 +247,9 @@ const getPRsSingleWithAPI = (workItemId: string) => {
 const setRepoNameForReposSingleWithAPI = () => {
   return new Promise(async (resolve, reject) => {
     try {
-      for(let repo of prs.value) {
+      for(let pr of prs.value) {
 
-        const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id, 
+        const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId, 
             { 
                   auth: {
                     username: '',
@@ -195,10 +263,10 @@ const setRepoNameForReposSingleWithAPI = () => {
                   }
             })
           
-        repo.name = responseGit.data.name;
+        pr.repoName = responseGit.data.name;
       }
       prs.value = prs.value.sort(function(a:PR, b:PR) {
-        return (a.name < b.name) ? -1 : 1;
+        return (a.repoName < b.repoName) ? -1 : 1;
       });
 
       resolve(prs.value);
@@ -209,28 +277,32 @@ const setRepoNameForReposSingleWithAPI = () => {
 
 };
 
-const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:string, top:number) => {
+const setPRDitailsSingleWithAPI = () => {
   return new Promise(async (resolve, reject) => {
-      for(let repo of prs.value) {
+      for(let pr of prs.value) {
         try {
 
-          const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/diffs/commits', 
+          const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId + '/pullrequests/' + pr.id, 
               { 
                     auth: {
                       username: '',
                       password: token
                     },
                     params: {
-                      '$top': top,
-                      'baseVersion': targetBranchName,
-                      'targetVersion': sourceBranchName,
                       'api-version':'5.1'
                     },
                     validateStatus: function (status) {
                       return status == 200;
                     }
               })
-          repo.diff = responseGit.data.aheadCount;
+          const targetBranchParts:string[] = responseGit.data.targetRefName.split('/');
+          const sourceBranchParts:string[] = responseGit.data.sourceRefName.split('/');
+          pr.status = responseGit.data.status;
+          pr.mergeStatus = responseGit.data.mergeStatus;
+          pr.title = responseGit.data.title;
+          pr.description = responseGit.data.description;
+          pr.soruceBranch = sourceBranchParts[2];
+          pr.targetBranch = targetBranchParts[2];
           resolve(prs.value);
         } catch (error) {
           reject(error);
@@ -251,6 +323,7 @@ const getPRsSingle = async (workItemId: string) => {
   try {
     await getPRsSingleWithAPI(workItemId);
     await setRepoNameForReposSingleWithAPI();
+    await setPRDitailsSingleWithAPI();
 
 
   } catch(error) {
@@ -332,28 +405,33 @@ const setDiffColor = (diff: number) => {
         <label>Pull Requests:</label>
       </div>
 
-      <div v-for="repo in prs" class='repobox'>
+      <div v-for="pr in prs" class='repobox'>
         <ul>
           <li>
           <input
             :id="'repo.id'"
             type="checkbox"
-            v-bind:checked="repo.diff!=0"
-            :value="repo.id"
-            v-model="wiReposCheckbox"
-            v-bind:disabled="repo.diff==0"
+            :value="pr.id"
+            v-model="wiPRsCheckbox"
+            v-bind:disabled="pr.status=='0'"
           />
-          <label :for="'repo.id'">{{repo.name}}</label>
-          <label :for="'repo.id'"  :class="setDiffColor(repo.diff)">
-            {{setDiffText(repo.diff)}}
+          <label :for="'pr.id'">{{pr.repoName}}</label>
+          <label :for="'pr.id'">{{pr.id}}</label>
+          <label :for="'pr.id'">{{pr.status}}</label>
+          <label :for="'pr.id'">{{pr.mergeStatus}}</label>
+          <label :for="'pr.id'">{{pr.title}}</label>
+          <label :for="'pr.id'">{{pr.targetBranch}}</label>
+          <label :for="'pr.id'">{{pr.soruceBranch}}</label>
+          <label :for="'pr.id'"  :class="setDiffColor(pr.diff)">
+            {{setDiffText(pr.diff)}}
           </label>
-          <label :for="'repo.id'"  :class="setStatusColor(repo.status)" >
-            <div class="prStatusBox" v-show="repo.status==1">
-              <a :href="url + project + '/_git/app/pullrequest/' + repo.prId + '?_a=overview'" target="_blank">
-                {{repo.prId}}
+          <label :for="'pr.id'"  :class="setStatusColor(pr.status)" >
+            <div class="prStatusBox" v-show="pr.status=='1'">
+              <a :href="url + project + '/_git/app/pullrequest/' + pr.id + '?_a=overview'" target="_blank">
+                {{pr.id}}
               </a>
             </div>
-            <div class="prStatusBox" v-show="repo.status==2">
+            <div class="prStatusBox" v-show="pr.status=='2'">
               NG
             </div>
           </label>
@@ -362,11 +440,11 @@ const setDiffColor = (diff: number) => {
       </div>
 
       <div class='inputbox'>
-        <button @click="createPRs(workItemId); ">
-          ApprovePRs
+        <button @click="approvePRs(); ">
+          Approve
         </button>
         <button @click="createPRs(workItemId); ">
-          MergePRs
+          Merge
         </button>
         <div class='errorStatusbox'>{{updatePRErrorStatus}}</div>
         <div class='successStatusbox'>{{debug}}</div>
