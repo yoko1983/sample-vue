@@ -37,8 +37,13 @@ const wiReposCheckbox = ref([]);
 const radioboxBranch: Ref<string> = ref<string>('branchTarget2');
 const prTitle: Ref<string> = ref<string>('');
 const prDescription: Ref<string> = ref<string>('');
+const linkingWorkItemId1: Ref<string> = ref<string>('');
+const linkingWorkItemId2: Ref<string> = ref<string>('');
+const linkingWorkItemId3: Ref<string> = ref<string>('');
+const linkingWorkItemId4: Ref<string> = ref<string>('');
+const linkingWorkItemId5: Ref<string> = ref<string>('');
 
-
+  
 
 const { cookies } = useCookies();
 
@@ -418,6 +423,18 @@ const setDiffColor = (diff: number) => {
         <input type="text" v-model="prDescription">
       </div>
 
+      <div class='labelbox'>
+        <label>Pull Request Linking WorkItem IDs:</label>
+      </div>
+
+      <div class='inputboxMini'>
+        <input type="text" v-model="linkingWorkItemId1">
+        <input type="text" v-model="linkingWorkItemId2">
+        <input type="text" v-model="linkingWorkItemId3">
+        <input type="text" v-model="linkingWorkItemId4">
+        <input type="text" v-model="linkingWorkItemId5">
+      </div>
+
       <div class='inputbox'>
         <button @click="createPRs(workItemId); ">
           CreatePR
@@ -481,6 +498,15 @@ header {
 .labelbox label {
   margin-left: 0.5em;
   font-size: 1rem;
+}
+
+.inputboxMini {
+	width:500px;
+	padding:5px;
+}
+.inputboxMini input {
+  margin-left: 1em;
+	width:60px;
 }
 
 .inputbox {

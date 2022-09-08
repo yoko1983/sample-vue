@@ -126,14 +126,9 @@ const approvePRSingleWithAPI = (pr: PR) => {
       const response = await axios.patch(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' +pr.id, 
           [{ 
             'op': 'add',
-            'path': '/relations/-',
+            'path': '/reviewers/-',
             'value': {
-                'rel': 'ArtifactLink',
-                'url': repoUrl,
-                'attributes': {
-                    'comment': repo.name,
-                    'name': 'Branch'
-                }
+
             }
           }],
           { 
