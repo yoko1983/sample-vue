@@ -37,11 +37,7 @@ const wiReposCheckbox = ref([]);
 const radioboxBranch: Ref<string> = ref<string>('branchTarget2');
 const prTitle: Ref<string> = ref<string>('');
 const prDescription: Ref<string> = ref<string>('');
-const linkingWorkItemId1: Ref<string> = ref<string>('');
-const linkingWorkItemId2: Ref<string> = ref<string>('');
-const linkingWorkItemId3: Ref<string> = ref<string>('');
-const linkingWorkItemId4: Ref<string> = ref<string>('');
-const linkingWorkItemId5: Ref<string> = ref<string>('');
+const linkingWorkItemIds: Ref<string[]> = ref([]);
 
   
 
@@ -54,20 +50,43 @@ let token:string = cookies.get('vue-ads-token');
 const workItemId: Ref<string> = ref<string>('');
 
 const createPRSingleWithAPI = 
-  (repo: Repo, sourceBranch:string, targetBranch:string, workItemId: string, prTitle: string, prDescription: string) => {
+  (repo: Repo, 
+    sourceBranch:string, 
+    targetBranch:string, 
+    workItemId: string, 
+    prTitle: string, 
+    prDescription: string, 
+    linkingWorkItemIds: string[]) => {
   return new Promise(async (resolve, reject) => {
+
+    let linkingWorkItemUrls = [];
+
+    linkingWorkItemUrls.push(
+      {
+        "id": workItemId,
+        "url": url + '/' + project  + "_apis/wit/workItems/" +workItemId 
+      }
+    )
+    prTitle = prTitle + ' #' + workItemId;
+
+    for(let linkingWorkItemId of linkingWorkItemIds) {
+      if(linkingWorkItemId != '') {
+        let wiUrl = {
+          "id": linkingWorkItemId,
+          "url": url + '/' + project  + "_apis/wit/workItems/" +linkingWorkItemId 
+        }
+        linkingWorkItemUrls.push(wiUrl);
+        prTitle = prTitle + ' #' + linkingWorkItemId;
+      }
+
+    }
 
     const request = {
       "sourceRefName": "refs/heads/" + sourceBranch,
       "targetRefName": "refs/heads/" + targetBranch,
       "title": "[" + repo.name + " / " + targetBranch + "] " + prTitle,
       "description": prDescription,
-      "workItemRefs": [
-          {
-            "id": workItemId,
-            "url": url + '/' + project  + "_apis/wit/workItems/" +workItemId 
-          }
-        ]
+      "workItemRefs": linkingWorkItemUrls
       };
 
 
@@ -132,7 +151,9 @@ const createPRsSingle = async (workItemId: string) => {
                                   targetBranch, 
                                   workItemId, 
                                   prTitle.value, 
-                                  prDescription.value); 
+                                  prDescription.value,
+                                  linkingWorkItemIds.value
+                                  ); 
 
           const prUrl:string = response.data.artifactId;
           const urlBaseLen:number = "vstfs:///Git/PullRequestId/".length;
@@ -428,11 +449,11 @@ const setDiffColor = (diff: number) => {
       </div>
 
       <div class='inputboxMini'>
-        <input type="text" v-model="linkingWorkItemId1">
-        <input type="text" v-model="linkingWorkItemId2">
-        <input type="text" v-model="linkingWorkItemId3">
-        <input type="text" v-model="linkingWorkItemId4">
-        <input type="text" v-model="linkingWorkItemId5">
+        <input type="text" v-model="linkingWorkItemIds[0]">
+        <input type="text" v-model="linkingWorkItemIds[1]">
+        <input type="text" v-model="linkingWorkItemIds[2]">
+        <input type="text" v-model="linkingWorkItemIds[3]">
+        <input type="text" v-model="linkingWorkItemIds[4]">
       </div>
 
       <div class='inputbox'>
