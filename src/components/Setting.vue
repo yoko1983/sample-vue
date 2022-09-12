@@ -26,6 +26,7 @@ if (cookies.get('vue-ads-token') != null) {
 const workItemId = '';
 
 const regist = (url: string, project: string ,token: string) => {
+  cookies.config(60 * 60 * 24 * 365, '');
   cookies.set('vue-ads-url', url);
   cookies.set('vue-ads-project', project);
   cookies.set('vue-ads-token', token);
