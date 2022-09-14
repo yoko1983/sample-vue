@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import type { Ref } from 'vue';
-import { useCookies } from "vue3-cookies";
+import { useCookies, globalCookiesConfig } from "vue3-cookies";
 import Title from '@/components/Title.vue'
 
 const registedSuccessStatus: Ref<string> = ref<string>('');
 const registedErrorStatus: Ref<string> = ref<string>('');
-
 
 const { cookies } = useCookies();
 
@@ -26,10 +25,10 @@ if (cookies.get('vue-ads-token') != null) {
 const workItemId = '';
 
 const regist = (url: string, project: string ,token: string) => {
-  cookies.config(60 * 60 * 24 * 365, '');
-  cookies.set('vue-ads-url', url);
-  cookies.set('vue-ads-project', project);
-  cookies.set('vue-ads-token', token);
+
+  cookies.set('vue-ads-url', url, "365d");
+  cookies.set('vue-ads-project', project, "365d");
+  cookies.set('vue-ads-token', token, "365d");
 
   registedSuccessStatus.value = 'Success';
 

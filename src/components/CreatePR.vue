@@ -476,7 +476,6 @@ const setDiffColor = (diff: number) => {
           <input
             :id="'repo.id'"
             type="checkbox"
-            v-bind:checked="repo.diff!=0"
             :value="repo.id"
             v-model="wiReposCheckbox"
             v-bind:disabled="repo.diff==0"
