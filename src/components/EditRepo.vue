@@ -603,10 +603,10 @@ const setStatusColor = (status: number) => {
       <div class='labelbox'>
         <label>Project's Repositories </label>
       </div>
-      <div class="repo2ColBox">
+      <div class="repoMultiColBox">
         <ul>
           <li v-for="repo in pjRepos">
-          <div class="yoko" >
+          <div class="repoNameBox" >
             <input
             :id="'repo.id'"
             type="checkbox"
@@ -662,16 +662,16 @@ const setStatusColor = (status: number) => {
 	width:200px;
 }
 
-.repo2ColBox {
+.repoMultiColBox {
 	padding:0px;
   width:720px; 
 }
-.repo2ColBox ul {
-  column-count: 3;
+.repoMultiColBox ul {
+  column-count: 2;
   list-style: none;
 
 }
-.repo2ColBox ul li {
+.repoMultiColBox ul li {
 	margin-bottom:5px;
 	padding-left:1em;
 	text-indent:-1em;
@@ -697,7 +697,7 @@ const setStatusColor = (status: number) => {
 
 .repoNameBox {
   display: inline-block; 
-	width:240px;
+	width:300px;
 	padding-left:1em;
 }
 

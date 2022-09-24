@@ -303,6 +303,46 @@ const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:
 
 };
 
+const setActivePRForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:string) => {
+  return new Promise(async (resolve, reject) => {
+      for(let repo of repos.value) {
+        try {
+
+          const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/pullrequests', 
+              { 
+                    auth: {
+                      username: '',
+                      password: token
+                    },
+                    params: {
+                      'searchCriteria.status': 'active',
+                      'searchCriteria.targetRefName': 'refs/heads/' + targetBranchName,
+                      'searchCriteria.sourceRefName': 'refs/heads/' + sourceBranchName,
+                      'api-version':'5.1'
+                    },
+                    validateStatus: function (status) {
+                      return status == 200;
+                    }
+              })
+          
+          if(responseGit.data.count!=0) {
+            repo.prId=responseGit.data.value[0].pullRequestId;
+            repo.status = 1;
+
+          }
+          
+          resolve(repos.value);
+
+        } catch (error) {
+          reject(error);
+          
+        }
+
+    }
+
+  });
+
+};
 
 
 const getReposSingle = async (workItemId: string) => {
@@ -321,6 +361,7 @@ const getReposSingle = async (workItemId: string) => {
     }
     else if(radioboxBranch.value == "branchTarget4") {
       await setDiffForReposSingleWithAPI(branchSource4, branchTarget4, 1);
+      await setActivePRForReposSingleWithAPI(branchSource4, branchTarget4);
     }
 
 
@@ -478,7 +519,7 @@ const setDiffColor = (diff: number) => {
             type="checkbox"
             :value="repo.id"
             v-model="wiReposCheckbox"
-            v-bind:disabled="repo.diff==0"
+            v-bind:disabled="repo.diff==0 || repo.status==1"
           />
           <label :for="'repo.id'">{{repo.name}}</label>
           <label :for="'repo.id'"  :class="setDiffColor(repo.diff)">
@@ -571,6 +612,10 @@ header {
 .prStatusBox {
   margin-left: 10px;
   display: inline-block; 
+}
+
+.prStatusBox a:hover {
+    background-color: hsla(160, 100%, 37%, 0.2);
 }
 
 .statusbox {

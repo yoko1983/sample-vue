@@ -96,11 +96,11 @@ const createPRsSingle = async (workItemId: string) => {
           const decodeUrl:string = decodeURIComponent(prUrl);
           const urlPart:string = decodeUrl.substring(urlBaseLen);
           const urlParts:string[] = urlPart.split('/');
-          repo.prId=urlParts[2];
-          repo.status=1;
+          // repo.prId=urlParts[2];
+          // repo.status=1;
         } catch(error) {
           updatePRErrorStatus.value = String(error);
-          repo.status=2;
+          // repo.status=2;
         }
         break;
       }
@@ -417,7 +417,7 @@ const setDiffColor = (diff: number) => {
           <label :for="'pr.id'">{{pr.title}}</label>
           <label :for="'pr.id'">{{pr.targetBranch}}</label>
           <label :for="'pr.id'">{{pr.soruceBranch}}</label>
-          <label :for="'pr.id'"  :class="setDiffColor(pr.diff)">
+          <!-- <label :for="'pr.id'"  :class="setDiffColor(pr.diff)">
             {{setDiffText(pr.diff)}}
           </label>
           <label :for="'pr.id'"  :class="setStatusColor(pr.status)" >
@@ -429,7 +429,7 @@ const setDiffColor = (diff: number) => {
             <div class="prStatusBox" v-show="pr.status=='2'">
               NG
             </div>
-          </label>
+          </label> -->
           </li>
         </ul>
       </div>

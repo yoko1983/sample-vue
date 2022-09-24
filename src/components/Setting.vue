@@ -9,7 +9,7 @@ const registedErrorStatus: Ref<string> = ref<string>('');
 
 const { cookies } = useCookies();
 
-let url = '';
+let url = 'https://';
 if (cookies.get('vue-ads-url') != null) {
   url = cookies.get('vue-ads-url');
 }

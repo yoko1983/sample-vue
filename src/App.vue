@@ -4,7 +4,6 @@
 import { ref } from 'vue';
 import type { Ref } from 'vue';
 import Settings from '@/components/Setting.vue'
-import LinkRepo from '@/components/LinkRepo.vue'
 import CreatePR from '@/components/CreatePR.vue'
 import EditRepo from '@/components/EditRepo.vue'
 import MergePR from '@/components/MergePR.vue'
@@ -52,8 +51,6 @@ const change = (menu: string) => {
   <header>
     <a v-on:click="change('EditRepo')"  v-bind:class="{'active': isActive === 'EditRepo'}">EditRepo</a>
     /
-    <a v-on:click="change('LinkRepo')"  v-bind:class="{'active': isActive === 'LinkRepo'}">LinkRepo</a>
-    /
     <a v-on:click="change('CreatePR')"  v-bind:class="{'active': isActive === 'CreatePR'}">CreatePR</a>
     /
     <a v-on:click="change('MergePR')"  v-bind:class="{'active': isActive === 'MergePR'}">MergePR</a>
@@ -62,9 +59,6 @@ const change = (menu: string) => {
   </header>
   <article v-if="isActive === 'EditRepo'">
     <EditRepo />
-  </article>
-  <article v-if="isActive === 'LinkRepo'">
-    <LinkRepo />
   </article>
   <article v-if="isActive === 'CreatePR'">
     <CreatePR />
