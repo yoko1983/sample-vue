@@ -15,15 +15,17 @@ const isActive: Ref<string> = ref<string>('EditRepo');
 
 let url:string = cookies.get('vue-ads-url');
 let project:string = cookies.get('vue-ads-project');
+let userId:string = cookies.get('vue-ads-userId');
 let token:string = cookies.get('vue-ads-token');
 
-if (url==null || project == null || token ==null) {
+if (url==null || project == null || userId ==null || token ==null) {
   isActive.value = 'Setting'
 }
 
-if (url!=null && project != null && token !=null) {
+if (url!=null && project != null && userId !=null && token !=null) {
   cookies.set('vue-ads-url', url);
   cookies.set('vue-ads-project', project);
+  cookies.set('vue-ads-userId', userId);
   cookies.set('vue-ads-token', token);
 }
 
@@ -32,9 +34,10 @@ const change = (menu: string) => {
 
   url = cookies.get('vue-ads-url');
   project = cookies.get('vue-ads-project');
+  userId = cookies.get('vue-ads-userId');
   token = cookies.get('vue-ads-token');
 
-  if (url==null || project == null || token ==null) {
+  if (url==null || project == null || userId ==null || token ==null) {
     isActive.value = 'Setting'
   }
 

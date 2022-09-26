@@ -22,6 +22,7 @@ interface PR {
   mergeStatus: string
   soruceBranch: string
   targetBranch: string
+  vote: number
 }
 
 const debug: Ref<string> = ref<string>('');
@@ -35,9 +36,13 @@ const { cookies } = useCookies();
 
 let url:string = cookies.get('vue-ads-url');
 let project:string = cookies.get('vue-ads-project');
+let userId:string = cookies.get('vue-ads-userId');
 let token:string = cookies.get('vue-ads-token');
 
 const workItemId: Ref<string> = ref<string>('');
+
+const reviewerId: Ref<string> = ref<string>('');
+
 
 const updatePRSingleWithAPI = 
   (repo: PR, workItemId: string) => {
@@ -119,25 +124,24 @@ const createPRs = (workItemId: string) => {
 }
 
 
-const approvePRSingleWithAPI = (pr: PR) => {
+const approvePRSingleWithAPI = (pr: PR, reviewerId: string) => {
   return new Promise(async (resolve, reject) => {
 
     try {
-      const response = await axios.patch(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' +pr.id, 
-          [{ 
-            'op': 'add',
-            'path': '/reviewers/-',
-            'value': {
 
-            }
-          }],
+      const response = 
+        await axios.put(
+          url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' +pr.id + '/reviewers/' + reviewerId, 
+          { 
+            'vote': '10'
+          },
           { 
                 auth: {
                   username: '',
                   password: token
                 },
                 headers: { 
-                  'Content-Type': 'application/json-patch+json'
+                  'Content-Type': 'application/json'
                 },
                 params: {
                   'api-version':'5.1'
@@ -155,15 +159,15 @@ const approvePRSingleWithAPI = (pr: PR) => {
 
 };
 
-// ボタンクリック時に実行するパターン
 const approvePRsSingle = async () => {
+  await getReviewerIdSingleWithAPI();
 
   try {
 
     for (let prId of wiPRsCheckbox.value) {
       for (let pr of prs.value) {
         if(prId==pr.id) {
-          const response = await approvePRSingleWithAPI(pr); 
+          const response = await approvePRSingleWithAPI(pr, reviewerId.value); 
           break;
         }
       }
@@ -175,9 +179,55 @@ const approvePRsSingle = async () => {
 
 }
 
+const getReviewerIdSingleWithAPI = () => {
+  return new Promise(async (resolve, reject) => {
+    try {
+
+      let idUrl = url;
+
+      if(idUrl.startsWith('https://dev.azure.com')) {
+        idUrl = idUrl.replace('https://dev.azure.com', 'https://vssps.dev.azure.com');
+      }
+
+      // const response = await axios.get(idUrl  + '/_apis/identities', 
+      const response = await axios.get(idUrl  + '/_apis/identities', 
+          { 
+                auth: {
+                  username: '',
+                  password: token
+                },
+                params: {
+                  'searchFilter': 'General',
+                  'filterValue': userId,
+                  'queryMembership': 'None',
+                  'api-version':'5.1'
+                },
+                validateStatus: function (status) {
+                  return status == 200;
+                }
+          })
+
+      if(response.data.count==1) {
+        reviewerId.value = response.data.value[0].id;
+
+      } else {
+        reject('User id is not correct.');
+
+      }
+      resolve(response);
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+};
+
+
 const approvePRs = () => {
   updatePRErrorStatus.value =  '';
   approvePRsSingle();
+  getPRsSingle(workItemId.value);
 
 }
 
@@ -223,7 +273,8 @@ const getPRsSingleWithAPI = (workItemId: string) => {
             status:'',
             mergeStatus:'',
             soruceBranch:'',
-            targetBranch:''
+            targetBranch:'',
+            vote:0
           };
 
           prs.value.push(pr);
@@ -298,6 +349,24 @@ const setPRDitailsSingleWithAPI = () => {
           pr.description = responseGit.data.description;
           pr.soruceBranch = sourceBranchParts[2];
           pr.targetBranch = targetBranchParts[2];
+
+          if(responseGit.data.reviewers != null) {
+            let reviewerUrls:string[] = [];
+            for(let reviewer of responseGit.data.reviewers) {
+              let isVoted: boolean = true;
+              for(let reviewerUrl of reviewerUrls) {
+                if(reviewer.reviewerUrl == reviewerUrl) {
+                  isVoted = false;
+                }
+              }
+              if(isVoted) {
+                pr.vote += reviewer.vote;
+              }
+              reviewerUrls.push(reviewer.url);
+            }
+          }
+
+
           resolve(prs.value);
         } catch (error) {
           reject(error);
@@ -336,32 +405,34 @@ const getPRs = (workItemId: string) => {
 
 
 
-const setStatusColor = (status: number) => {
-      if (status == 1) {
-        return "blue";
-      }
-      if (status == 2) {
-        return "red";
-      }
+const setStatusColor = (status: string, vote: number) => {
+  if (status == 'active' && vote>0) {
+        return 'green';
+  }
+  else if (status == 'active' && vote==0) {
+        return 'blue';
+  }
+  else if (status == 'active' && vote<0) {
+        return 'red';
+  }
+  else {
+    return 'silver';
+  }
 }
 
-
-const setDiffText = (diff: number) => {
-      if (diff > 0) {
-        return "diff";
-      } else {
-        return "same";
-      }
-
-}
-
-const setDiffColor = (diff: number) => {
-      if (diff > 0) {
-        return "diff_blue";
-      } else {
-        return "diff_silver";
-      }
-
+const getStatus = (status: string, vote: number) => {
+  if (status == 'active' && vote>0) {
+        return 'approved(' + vote + ')';
+  }
+  else if (status == 'active' && vote==0) {
+        return 'active';
+  }
+  else if (status == 'active' && vote<0) {
+        return 'rejected';
+  }
+  else {
+    return status;
+  }
 }
 
 
@@ -408,15 +479,16 @@ const setDiffColor = (diff: number) => {
             type="checkbox"
             :value="pr.id"
             v-model="wiPRsCheckbox"
-            v-bind:disabled="pr.status=='0'"
+            v-bind:disabled="pr.status!='active'"
           />
           <label :for="'pr.id'">{{pr.repoName}}</label>
-          <label :for="'pr.id'">{{pr.id}}</label>
-          <label :for="'pr.id'">{{pr.status}}</label>
-          <label :for="'pr.id'">{{pr.mergeStatus}}</label>
-          <label :for="'pr.id'">{{pr.title}}</label>
-          <label :for="'pr.id'">{{pr.targetBranch}}</label>
-          <label :for="'pr.id'">{{pr.soruceBranch}}</label>
+          <label :for="'pr.id'" :class="setStatusColor(pr.status, pr.vote)">{{getStatus(pr.status, pr.vote)}}</label>
+          <label :for="'pr.id'">
+            <a :href="url + project + '/_git/'+ pr.repoName +'/pullrequest/' + pr.id + '?_a=overview'" target="_blank">
+                {{pr.id}}
+            </a>
+          </label>
+          <label :for="'pr.id'" class='smallFont'>({{pr.soruceBranch}} -> {{pr.targetBranch}})</label>
           <!-- <label :for="'pr.id'"  :class="setDiffColor(pr.diff)">
             {{setDiffText(pr.diff)}}
           </label>
@@ -525,21 +597,23 @@ header {
 }
 .blue {
   color: blue;
-  font-size: 90%;
+  font-size: 80%;
+}
+.green {
+  color: green;
+  font-size: 80%;
 }
 .red {
   color: red;
   font-size: 80%;
 }
-.diff_silver {
+.silver {
   color: silver;
   font-size: 80%;
 }
-.diff_blue {
-  color: blue;
+.smallFont {
   font-size: 80%;
 }
-
 
 @media (min-width: 1024px) {
   .main-grid {

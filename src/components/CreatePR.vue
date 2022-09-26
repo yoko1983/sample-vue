@@ -527,7 +527,7 @@ const setDiffColor = (diff: number) => {
           </label>
           <label :for="'repo.id'"  :class="setStatusColor(repo.status)" >
             <div class="prStatusBox" v-show="repo.status==1">
-              <a :href="url + project + '/_git/app/pullrequest/' + repo.prId + '?_a=overview'" target="_blank">
+              <a :href="url + project + '/_git/' + repo.name + '/pullrequest/' + repo.prId + '?_a=overview'" target="_blank">
                 {{repo.prId}}
               </a>
             </div>

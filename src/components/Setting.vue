@@ -17,6 +17,10 @@ let project = '';
 if (cookies.get('vue-ads-project') != null) {
   project = cookies.get('vue-ads-project');
 }
+let userId = '';
+if (cookies.get('vue-ads-userId') != null) {
+  userId = cookies.get('vue-ads-userId');
+}
 let token = '';
 if (cookies.get('vue-ads-token') != null) {
   token = cookies.get('vue-ads-token');
@@ -24,10 +28,11 @@ if (cookies.get('vue-ads-token') != null) {
 
 const workItemId = '';
 
-const regist = (url: string, project: string ,token: string) => {
+const regist = (url: string, project: string , userId: string, token: string) => {
 
   cookies.set('vue-ads-url', url, "365d");
   cookies.set('vue-ads-project', project, "365d");
+  cookies.set('vue-ads-userId', userId, "365d");
   cookies.set('vue-ads-token', token, "365d");
 
   registedSuccessStatus.value = 'Success';
@@ -62,6 +67,15 @@ const regist = (url: string, project: string ,token: string) => {
       </div>
 
       <div class='labelbox'>
+        <label>UserId:</label>
+      </div>
+
+      <div class='inputbox'>
+        <input type="text" v-model="userId">
+      </div>
+
+      
+      <div class='labelbox'>
         <label>Token:</label>
       </div>
 
@@ -70,7 +84,7 @@ const regist = (url: string, project: string ,token: string) => {
       </div>
 
       <div class='inputbox'>
-        <button @click="regist(url, project, token)">
+        <button @click="regist(url, project, userId, token)">
           Regist
         </button>
         <div class='successStatusbox'>{{registedSuccessStatus}}</div>
