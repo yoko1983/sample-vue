@@ -23,6 +23,8 @@ interface PR {
   soruceBranch: string
   targetBranch: string
   vote: number
+  lastMergeSourceCommitId: string
+  lastMergeTargetCommitId: string
 }
 
 const debug: Ref<string> = ref<string>('');
@@ -45,21 +47,19 @@ const reviewerId: Ref<string> = ref<string>('');
 
 
 const updatePRSingleWithAPI = 
-  (repo: PR, workItemId: string) => {
+  (pr: PR, workItemId: string) => {
   return new Promise(async (resolve, reject) => {
 
     const request = {
-      "workItemRefs": [
-          {
-            "id": workItemId,
-            "url": url + '/' + project  + "_apis/wit/workItems/" +workItemId 
-          }
-        ]
-      };
+      'status': 'completed',
+      'lastMergeSourceCommit' : {
+        'commitId': pr.lastMergeSourceCommitId,
+      }
+    };
 
 
     try {
-      const response = await axios.post(url + '/' + project  + '/_apis/git/repositories/' + repo.id +'/pullrequests',
+      const response = await axios.patch(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' + pr.id,
           request, 
           { 
                 auth: {
@@ -67,13 +67,13 @@ const updatePRSingleWithAPI =
                   password: token
                 },
                 headers: { 
-                  'Content-Type': 'application/json'
+                  'Content-Type': 'application/json-patch+json'
                 },
                 params: {
                   'api-version':'5.1'
                 },
                 validateStatus: function (status) {
-                  return status == 201;
+                  return status == 200;
                 }
           })
 
@@ -81,26 +81,57 @@ const updatePRSingleWithAPI =
     } catch (error) {
       reject(error);
     }
+
+    // const request = {
+    //   'comment': 'Merged PR ' + pr.id + ': ' + pr.title,
+    //   'parents': [pr.lastMergeSourceCommitId, pr.lastMergeTargetCommitId]
+    // };
+
+
+    // try {
+    //   const response = await axios.post(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/merges',
+    //       request, 
+    //       { 
+    //             auth: {
+    //               username: '',
+    //               password: token
+    //             },
+    //             headers: { 
+    //               'Content-Type': 'application/json'
+    //             },
+    //             params: {
+    //               'api-version':'5.1'
+    //             },
+    //             validateStatus: function (status) {
+    //               return status == 201;
+    //             }
+    //       })
+
+    //   resolve(response);
+    // } catch (error) {
+    //   reject(error);
+    // }
   });
 
 };
 
-const createPRsSingle = async (workItemId: string) => {
+const updatePRsSingle = async (workItemId: string) => {
 
-  for (let repoId of wiPRsCheckbox.value) {
+  for (let prId of wiPRsCheckbox.value) {
 
-    for (let repo of prs.value) {
+    for (let pr of prs.value) {
 
-      if(repo.id == repoId) {
+      if(pr.id == prId) {
         try {
           const response:any = 
-            await updatePRSingleWithAPI(repo, workItemId); 
+            await updatePRSingleWithAPI(pr, workItemId); 
+          debug.value = response.data;
 
-          const prUrl:string = response.data.artifactId;
-          const urlBaseLen:number = "vstfs:///Git/PullRequestId/".length;
-          const decodeUrl:string = decodeURIComponent(prUrl);
-          const urlPart:string = decodeUrl.substring(urlBaseLen);
-          const urlParts:string[] = urlPart.split('/');
+          // const prUrl:string = response.data.artifactId;
+          // const urlBaseLen:number = "vstfs:///Git/PullRequestId/".length;
+          // const decodeUrl:string = decodeURIComponent(prUrl);
+          // const urlPart:string = decodeUrl.substring(urlBaseLen);
+          // const urlParts:string[] = urlPart.split('/');
           // repo.prId=urlParts[2];
           // repo.status=1;
         } catch(error) {
@@ -117,9 +148,9 @@ const createPRsSingle = async (workItemId: string) => {
 
 }
 
-const createPRs = (workItemId: string) => {
+const updatePRs = (workItemId: string) => {
   updatePRErrorStatus.value =  '';
-  createPRsSingle(workItemId);
+  updatePRsSingle(workItemId);
 
 }
 
@@ -160,9 +191,9 @@ const approvePRSingleWithAPI = (pr: PR, reviewerId: string) => {
 };
 
 const approvePRsSingle = async () => {
-  await getReviewerIdSingleWithAPI();
 
   try {
+    await getReviewerIdSingleWithAPI();
 
     for (let prId of wiPRsCheckbox.value) {
       for (let pr of prs.value) {
@@ -274,7 +305,9 @@ const getPRsSingleWithAPI = (workItemId: string) => {
             mergeStatus:'',
             soruceBranch:'',
             targetBranch:'',
-            vote:0
+            vote:0,
+            lastMergeSourceCommitId:'',
+            lastMergeTargetCommitId:''
           };
 
           prs.value.push(pr);
@@ -365,6 +398,9 @@ const setPRDitailsSingleWithAPI = () => {
               reviewerUrls.push(reviewer.url);
             }
           }
+
+          pr.lastMergeSourceCommitId = responseGit.data.lastMergeSourceCommit.commitId;
+          pr.lastMergeTargetCommitId = responseGit.data.lastMergeTargetCommit.commitId;
 
 
           resolve(prs.value);
@@ -510,7 +546,7 @@ const getStatus = (status: string, vote: number) => {
         <button @click="approvePRs(); ">
           Approve
         </button>
-        <button @click="createPRs(workItemId); ">
+        <button @click="updatePRs(workItemId); ">
           Merge
         </button>
         <div class='errorStatusbox'>{{updatePRErrorStatus}}</div>
@@ -551,11 +587,11 @@ header {
 	padding:0px;
 }
 .repobox ul {
-	width:500px;
+	width:750px;
   list-style: none;
 }
 .repobox ul li {
-	width:500px;
+	width:750px;
 	margin-bottom:5px;
 	padding-left:1em;
 	text-indent:-1em;
