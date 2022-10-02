@@ -7,6 +7,7 @@ import { onMounted } from "vue"
 import axios from "axios"
 import { useCookies } from "vue3-cookies";
 import Title from '@/components/Title.vue'
+// import jsdom from 'jsdom'
 
 interface Repo {
   id: string
@@ -42,7 +43,13 @@ const pjReposCheckbox = ref([]);
 const workItemId: Ref<string> = ref<string>('');
 const workItemTitle: Ref<string> = ref<string>('');
 
-
+const selectedBranches: Ref<string> = ref<string>('branch1');
+const optionBranches = [ 
+          { id: 'branch1', name: 'branch1' }, 
+          { id: 'branch2', name: 'branch2' }, 
+          { id: 'branch3', name: 'branch3' }, 
+          { id: 'master', name: 'master' }, 
+      ];
 
 const delRepoSingleWithAPI = (workItemId:string, linkNums:number[]) => {
   return new Promise(async (resolve, reject) => {
@@ -79,7 +86,6 @@ const delRepoSingleWithAPI = (workItemId:string, linkNums:number[]) => {
 
       resolve(response);
     } catch (error) {
-      debug.value = String(error);
       reject(error);
     }
   });
@@ -126,9 +132,11 @@ const delWIReposSingle = async (workItemId: string) => {
 }
 
 const delWIRepos = (workItemId: string) => {
-  delWiReposSuccessStatus.value = '';
-  delWiReposErrorStatus.value =  '';
-  delWIReposSingle(workItemId);
+  if(wiReposCheckbox.value.length!=0) {
+    delWiReposSuccessStatus.value = '';
+    delWiReposErrorStatus.value =  '';
+    delWIReposSingle(workItemId);
+  }
 
 }
 
@@ -229,9 +237,99 @@ const addWIReposSingle = async (workItemId: string) => {
 }
 
 const addWIRepos = (workItemId: string) => {
-  addWiReposSuccessStatus.value = '';
-  addWiReposErrorStatus.value =  '';
-  addWIReposSingle(workItemId);
+  if(pjRepos.value.length!=0) {
+    addWiReposSuccessStatus.value = '';
+    addWiReposErrorStatus.value =  '';
+    addWIReposSingle(workItemId);
+  }
+
+}
+
+const getVersionAtRepoSingleWithAPI = (repo: Repo, branchName: string) => {
+  return new Promise(async (resolve, reject) => {
+
+    try {
+
+      const response = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/items', 
+          { 
+                auth: {
+                  username: '',
+                  password: token
+                },
+                params: {
+                  'path' : '/pom.xml',
+                  'versionDescriptor.version': branchName,
+                  'versionDescriptor.versionType' : 'branch',
+                  'includeContent' : true,
+                  'api-version':'5.1'
+                },
+                validateStatus: function (status) {
+                  return status == 200 || status == 404;
+                }
+          })
+          if(response.status == 200) {
+            const parser = new DOMParser();
+            let xmlData  = parser.parseFromString(response.data.content,"text/xml");
+            let xmlProjectElement = xmlData.querySelector('project');
+            if(xmlProjectElement!=null) {
+              let xmlProjectChildElements = xmlProjectElement.childNodes;
+              for( let i in xmlProjectChildElements ) {
+                if (xmlProjectChildElements.hasOwnProperty(i)) {
+                  if(xmlProjectChildElements[i].nodeName == 'version') {
+                    repo.version = String(xmlProjectChildElements[i].textContent);
+                  }
+                }
+              }
+            }
+          }
+
+
+
+
+          // debug.value = response.data.content;
+          // const xml2js = require('xml2js');
+          // const parser = new xml2js.Parser();
+          // debug.value = parser.parseString('<project>aaa</project>');
+//           var parseString = require('xml2js').parseString;
+// var xml = "<root>Hello xml2js!</root>"
+// parseString(xml, function (err: any , result: any) {
+//   debug.value = result;
+// });
+
+          // repo.version = '1';
+
+
+      resolve(response);
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+};
+
+const setVersionAtRepoSingle = async () => {
+
+  try {
+
+    for (let repoId of wiReposCheckbox.value) {
+
+      for (let repo of wiRepos.value) {
+        if(repo.id == repoId) {
+          const response = await getVersionAtRepoSingleWithAPI(repo, selectedBranches.value);
+        }
+      }
+    }
+
+  } catch (error) {
+    addWiReposErrorStatus.value = String(error);
+  }
+
+}
+
+const setVersionAtRepo = () => {
+  if(wiRepos.value.length!=0) {
+    setVersionAtRepoSingle();
+  }
 
 }
 
@@ -499,6 +597,7 @@ const updateWIReposSingle = async (workItemId: string) => {
       //   gettedRepoErrorStatus.value = String(error);
       // });;
     await getWIReposSingle(workItemId);
+    updateWiReposSuccessStatus.value = 'success';
 
   } catch(error) {
       updateWiReposErrorStatus.value = String(error);
@@ -509,8 +608,10 @@ const updateWIReposSingle = async (workItemId: string) => {
 }
 
 const updateWIRepos = (workItemId: string) => {
-  updateWiReposErrorStatus.value = '';
-  updateWIReposSingle(workItemId);
+  if(wiRepos.value.length!=0) {
+    updateWiReposErrorStatus.value = '';
+    updateWIReposSingle(workItemId);
+  }
 }
 
 const checkVersionForSetColor = (version: string) => {
@@ -557,7 +658,6 @@ const setStatusColor = (status: number) => {
 
       <div class='labelbox'>
         <label>[ {{workItemId}} ] {{workItemTitle}} :</label>
-        {{debug}}
       </div>
 
       <div v-for="repo, index in wiRepos " class='repoBox'>
@@ -586,14 +686,31 @@ const setStatusColor = (status: number) => {
         <button @click="delWIRepos(workItemId)">
           Delete
         </button>
-        <button @click="updateWIRepos(workItemId)">
-          Edit
-        </button>
         <div class='statusbox'>{{delWiReposSuccessStatus}}</div>
         <div class='errorStatusbox'>{{delWiReposErrorStatus}}</div>
+      </div>
+      <div class='labelbox'>
+        <label>Version :</label>
+      </div>
+      <div class='inputbox'>
+        <select v-model="selectedBranches">
+          <option disabled value="">Branch List</option>
+          <option v-for="branch in optionBranches" 
+            v-bind:value="branch.name" 
+            v-bind:key="branch.id">
+          {{ branch.name }}
+          </option>
+        </select>
+        <button @click="setVersionAtRepo()">
+          Set
+        </button>
+        <button @click="updateWIRepos(workItemId)">
+          Save
+        </button>
         <div class='statusbox'>{{updateWiReposSuccessStatus}}</div>
         <div class='errorStatusbox'>{{updateWiReposErrorStatus}}</div>
       </div>
+      {{debug}}
 
 
 
