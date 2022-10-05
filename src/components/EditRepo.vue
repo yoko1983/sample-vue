@@ -43,6 +43,8 @@ const pjReposCheckbox = ref([]);
 const workItemId: Ref<string> = ref<string>('');
 const workItemTitle: Ref<string> = ref<string>('');
 
+const wiReposAllCheckbox: Ref<boolean> = ref<boolean>(false);
+
 const selectedBranches: Ref<string> = ref<string>('branch1');
 const optionBranches = [ 
           { id: 'branch1', name: 'branch1' }, 
@@ -614,6 +616,18 @@ const updateWIRepos = (workItemId: string) => {
   }
 }
 
+const selectAllForWiReposCheckbox = () => {
+  wiReposAllCheckbox.value = !wiReposAllCheckbox.value;
+  wiReposCheckbox.value.length=0;
+  if(wiReposAllCheckbox.value) {
+    for(let repo of wiRepos.value) {
+      wiReposCheckbox.value.push(repo.id as never);
+    }
+  }
+
+}
+
+
 const checkVersionForSetColor = (version: string) => {
   let regexp = new RegExp('^(\\d+\\.)+(\\d+\\.)+(\\d+\\.)+(\\d+)$');
   if(version=='' || regexp.test(version)) {
@@ -678,6 +692,20 @@ const setStatusColor = (status: number) => {
                 v-model="wiRepos[index].version"
                 :class="checkVersionForSetColor(wiRepos[index].version)"
               />
+            </div>
+          </li>
+        </ul>
+      </div>
+      <div class='repoBox'>
+        <ul>
+          <li>
+            <input
+              type="checkbox"
+              v-model="wiReposAllCheckbox"
+              @click="selectAllForWiReposCheckbox();"
+            />
+            <div class="repoNameBox">
+              <label>Select All</label>
             </div>
           </li>
         </ul>
@@ -768,7 +796,6 @@ const setStatusColor = (status: number) => {
 }
 .inputbox input {
   margin-left: 1em;
-	width:360px;
 }
 .smallInputBox {
 	width:500px;
@@ -821,6 +848,18 @@ const setStatusColor = (status: number) => {
 .repoNameBox label {
 	padding-left:1em;
 }
+
+.lighterBox {
+  display: inline-block; 
+	width:300px;
+	padding-left:1em;
+}
+
+.lighterBox label {
+  font-weight: lighter;
+	padding-left:1em;
+}
+
 
 
 .versionBox {

@@ -50,15 +50,44 @@ const updatePRSingleWithAPI =
   (pr: PR, workItemId: string) => {
   return new Promise(async (resolve, reject) => {
 
-    const request = {
-      'status': 'completed',
-      'lastMergeSourceCommit' : {
-        'commitId': pr.lastMergeSourceCommitId,
-      }
-    };
 
 
     try {
+
+      getReviewerIdSingleWithAPI();
+
+      const getResponse = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' + pr.id,
+          { 
+                auth: {
+                  username: '',
+                  password: token
+                },
+                params: {
+                  'api-version':'5.1'
+                },
+                validateStatus: function (status) {
+                  return status == 200;
+                }
+          })
+
+
+      const request = {
+        'status': 'completed',
+        'lastMergeSourceCommit' : {
+          'commitId' : getResponse.data.lastMergeSourceCommit.commitId
+        }
+      };
+
+      debug.value = getResponse.data.lastMergeSourceCommit.commitId;
+
+      // debug.value = reviewerId.value;
+
+      // debug.value= request.lastMergeSourceCommit;
+
+      // debug.value = String(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' + pr.id + '?'+request);
+
+
+
       const response = await axios.patch(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' + pr.id,
           request, 
           { 
@@ -73,9 +102,12 @@ const updatePRSingleWithAPI =
                   'api-version':'5.1'
                 },
                 validateStatus: function (status) {
-                  return status == 200;
+                  return status == 415;
                 }
           })
+
+          debug.value = response.request
+          debug.value = "test";
 
       resolve(response);
     } catch (error) {
@@ -141,6 +173,7 @@ const updatePRsSingle = async (workItemId: string) => {
         break;
       }
     }
+    getPRsSingle(workItemId);
   }
 
 
@@ -203,6 +236,7 @@ const approvePRsSingle = async () => {
         }
       }
     }
+    getPRsSingle(workItemId.value);
 
   } catch (error) {
     updatePRErrorStatus.value = String(error);
@@ -258,7 +292,6 @@ const getReviewerIdSingleWithAPI = () => {
 const approvePRs = () => {
   updatePRErrorStatus.value =  '';
   approvePRsSingle();
-  getPRsSingle(workItemId.value);
 
 }
 

@@ -39,6 +39,8 @@ const prTitle: Ref<string> = ref<string>('');
 const prDescription: Ref<string> = ref<string>('');
 const linkingWorkItemIds: Ref<string[]> = ref([]);
 
+const wiReposAllCheckbox: Ref<boolean> = ref<boolean>(false);
+
   
 
 const { cookies } = useCookies();
@@ -290,7 +292,11 @@ const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:
                       return status == 200;
                     }
               })
-          repo.diff = responseGit.data.aheadCount;
+          if(responseGit.data.aheadCount==0 && responseGit.data.behindCount==0) {
+            repo.diff = 0;
+          } else {
+            repo.diff = 1;
+          }
           resolve(repos.value);
         } catch (error) {
           reject(error);
@@ -352,12 +358,15 @@ const getReposSingle = async (workItemId: string) => {
     await setRepoNameForReposSingleWithAPI();
     if(radioboxBranch.value == "branchTarget1") {
       await setDiffForReposSingleWithAPI(branchSource1, branchTarget1, 1);
+      await setActivePRForReposSingleWithAPI(branchSource1, branchTarget1);
     }
     else if(radioboxBranch.value == "branchTarget2") {
       await setDiffForReposSingleWithAPI(branchSource2, branchTarget2, 1);
+      await setActivePRForReposSingleWithAPI(branchSource2, branchTarget2);
     }
     else if(radioboxBranch.value == "branchTarget3") {
       await setDiffForReposSingleWithAPI(branchSource3, branchTarget3, 1);
+      await setActivePRForReposSingleWithAPI(branchSource3, branchTarget3);
     }
     else if(radioboxBranch.value == "branchTarget4") {
       await setDiffForReposSingleWithAPI(branchSource4, branchTarget4, 1);
@@ -378,6 +387,19 @@ const getRepos = (workItemId: string) => {
   getReposSingle(workItemId);
 }
 
+const selectAllForWiReposCheckbox = () => {
+  wiReposAllCheckbox.value = !wiReposAllCheckbox.value;
+  wiReposCheckbox.value.length=0;
+  if(wiReposAllCheckbox.value) {
+    for(let repo of repos.value) {
+      if(repo.diff!=0 && repo.status!=1) {
+        wiReposCheckbox.value.push(repo.id as never);
+
+      }
+    }
+  }
+
+}
 
 
 const setStatusColor = (status: number) => {
@@ -535,6 +557,18 @@ const setDiffColor = (diff: number) => {
               NG
             </div>
           </label>
+          </li>
+        </ul>
+      </div>
+      <div class='repobox'>
+        <ul>
+          <li>
+            <input
+              type="checkbox"
+              v-model="wiReposAllCheckbox"
+              @click="selectAllForWiReposCheckbox();"
+            />
+            <label>Select All</label>
           </li>
         </ul>
       </div>
