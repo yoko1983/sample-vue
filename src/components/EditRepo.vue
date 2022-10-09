@@ -16,7 +16,8 @@ interface Repo {
   status: number
   version: string
   linkNum: number
-  rev: string
+  versionComment: string
+
 }
 
 const debug: Ref<string> = ref<string>('');
@@ -247,7 +248,7 @@ const addWIRepos = (workItemId: string) => {
 
 }
 
-const getVersionAtRepoSingleWithAPI = (repo: Repo, branchName: string) => {
+const getVersionAtRepoSingleWithAPI = (repo: Repo, versionFile: string, branchName: string) => {
   return new Promise(async (resolve, reject) => {
 
     try {
@@ -259,7 +260,7 @@ const getVersionAtRepoSingleWithAPI = (repo: Repo, branchName: string) => {
                   password: token
                 },
                 params: {
-                  'path' : '/pom.xml',
+                  'path' : versionFile,
                   'versionDescriptor.version': branchName,
                   'versionDescriptor.versionType' : 'branch',
                   'includeContent' : true,
@@ -269,6 +270,7 @@ const getVersionAtRepoSingleWithAPI = (repo: Repo, branchName: string) => {
                   return status == 200 || status == 404;
                 }
           })
+          let version: string = '';
           if(response.status == 200) {
             const parser = new DOMParser();
             let xmlData  = parser.parseFromString(response.data.content,"text/xml");
@@ -278,30 +280,14 @@ const getVersionAtRepoSingleWithAPI = (repo: Repo, branchName: string) => {
               for( let i in xmlProjectChildElements ) {
                 if (xmlProjectChildElements.hasOwnProperty(i)) {
                   if(xmlProjectChildElements[i].nodeName == 'version') {
-                    repo.version = String(xmlProjectChildElements[i].textContent);
+                    version = String(xmlProjectChildElements[i].textContent);
                   }
                 }
               }
             }
           }
 
-
-
-
-          // debug.value = response.data.content;
-          // const xml2js = require('xml2js');
-          // const parser = new xml2js.Parser();
-          // debug.value = parser.parseString('<project>aaa</project>');
-//           var parseString = require('xml2js').parseString;
-// var xml = "<root>Hello xml2js!</root>"
-// parseString(xml, function (err: any , result: any) {
-//   debug.value = result;
-// });
-
-          // repo.version = '1';
-
-
-      resolve(response);
+      resolve(version);
     } catch (error) {
       reject(error);
     }
@@ -316,8 +302,23 @@ const setVersionAtRepoSingle = async () => {
     for (let repoId of wiReposCheckbox.value) {
 
       for (let repo of wiRepos.value) {
+        let version: string = '';
         if(repo.id == repoId) {
-          const response = await getVersionAtRepoSingleWithAPI(repo, selectedBranches.value);
+          version = await getVersionAtRepoSingleWithAPI(
+            repo, '/' + repo.name + '-container/pom.xml', selectedBranches.value) as string;
+
+          if(version!='') {
+            repo.version = version;
+          } else {
+            version = await getVersionAtRepoSingleWithAPI(
+              repo, '/pom.xml', selectedBranches.value) as string;
+
+            if(version!='') {
+              repo.version = version;
+
+            }
+
+          }
         }
       }
     }
@@ -332,6 +333,55 @@ const setVersionAtRepo = () => {
   if(wiRepos.value.length!=0) {
     setVersionAtRepoSingle();
   }
+
+}
+
+const checkVersionAtRepoSingle = async () => {
+
+try {
+
+  for (let repoId of wiReposCheckbox.value) {
+
+    for (let repo of wiRepos.value) {
+      let version: string = '';
+      if(repo.id == repoId) {
+        version = await getVersionAtRepoSingleWithAPI(
+          repo, '/' + repo.name + '-container/pom.xml', selectedBranches.value) as string;
+
+        if(version!='') {
+          if(version==repo.version) {
+            repo.versionComment = 'OK';
+          } else {
+            repo.versionComment = 'NG: ' + version;
+          }
+        } else {
+          version = await getVersionAtRepoSingleWithAPI(
+            repo, '/pom.xml', selectedBranches.value) as string;
+
+          if(version!='') {
+            if(version==repo.version) {
+              repo.versionComment = 'OK';
+            } else {
+              repo.versionComment = 'NG: ' + version;
+            }
+
+          }
+
+        }
+      }
+    }
+  }
+
+} catch (error) {
+  addWiReposErrorStatus.value = String(error);
+}
+
+}
+
+const checkVersionAtRepo = () => {
+if(wiRepos.value.length!=0) {
+  checkVersionAtRepoSingle();
+}
 
 }
 
@@ -384,7 +434,7 @@ const getWIReposSingleWithAPI = (workItemId: string):Promise<Repo[]> => {
               status: 0,
               version: version,
               linkNum: linkNum,
-              rev: workItem.rev
+              versionComment: ''
             };
 
             _wiRepos.push(repo);
@@ -488,7 +538,7 @@ const getPjReposSingleWithAPI = () => {
             status:0,
             version:'',
             linkNum:0,
-            rev:''
+            versionComment:''
           };
 
           _pjRepos.push(pjRepo);
@@ -628,7 +678,7 @@ const selectAllForWiReposCheckbox = () => {
 }
 
 
-const checkVersionForSetColor = (version: string) => {
+const validateVersionForSetColor = (version: string) => {
   let regexp = new RegExp('^(\\d+\\.)+(\\d+\\.)+(\\d+\\.)+(\\d+)$');
   if(version=='' || regexp.test(version)) {
     return 'background_success';
@@ -638,14 +688,13 @@ const checkVersionForSetColor = (version: string) => {
 }
 
 
-const setStatusColor = (status: number) => {
-      if (status == 1) {
+const setVerionCommentColor = (versionComment: string) => {
+      if (versionComment.startsWith('OK')) {
         return "blue";
       }
-      if (status == 2) {
-        return "green";
+      if (versionComment.startsWith('NG')) {
+        return "red";
       }
-      return "red";
 }
 
 </script>
@@ -690,9 +739,14 @@ const setStatusColor = (status: number) => {
               <input
                 type="text" 
                 v-model="wiRepos[index].version"
-                :class="checkVersionForSetColor(wiRepos[index].version)"
+                :class="validateVersionForSetColor(wiRepos[index].version)"
               />
             </div>
+            <label
+             :for="'repo.name'"
+             :class="setVerionCommentColor(repo.versionComment)">
+              {{repo.versionComment}}
+            </label>
           </li>
         </ul>
       </div>
@@ -731,6 +785,9 @@ const setStatusColor = (status: number) => {
         </select>
         <button @click="setVersionAtRepo()">
           Set
+        </button>
+        <button @click="checkVersionAtRepo()">
+          Check
         </button>
         <button @click="updateWIRepos(workItemId)">
           Save
@@ -886,12 +943,16 @@ const setStatusColor = (status: number) => {
 }
 .blue {
   color: blue;
+  font-size: 80%;
+  margin-left: 1em;
 }
 .green {
   color: gleen;
 }
 .red {
   color: red;
+  font-size: 80%;
+  margin-left: 1em;
 }
 .background_error {
   background-color: #f09199;

@@ -25,11 +25,15 @@ interface PR {
   vote: number
   lastMergeSourceCommitId: string
   lastMergeTargetCommitId: string
+  version: string
+  versionComment: string
+  isDupPR: boolean
 }
 
 const debug: Ref<string> = ref<string>('');
 
-const prs: Ref<PR[]> = ref([])
+const prs: Ref<PR[]> = ref([]);
+const dupPRs: Ref<PR[]> = ref([]);
 const getPRErrorStatus: Ref<string> = ref<string>('');
 const updatePRErrorStatus: Ref<string> = ref<string>('');
 const wiPRsCheckbox = ref([]);
@@ -295,12 +299,86 @@ const approvePRs = () => {
 
 }
 
+const getWIReposSingleWithAPI = (workItemId: string) => {
+  return new Promise(async (resolve, reject) => {
+    try {
 
-const getPRsSingleWithAPI = (workItemId: string) => {
+      const response = await axios.get(url + '/' + project  + '/_apis/wit/workitems/' + workItemId, 
+          { 
+                auth: {
+                  username: '',
+                  password: token
+                },
+                params: {
+                  '$expand': 'all',
+                  'api-version':'5.1'
+                },
+                validateStatus: function (status) {
+                  return status == 200;
+                }
+          })
+
+      const workItem = response.data;
+      let linkNum:number = 0;
+      const _wiRepos:PR[] = [];
+      if(workItem.relations != null) {
+
+        for(let relation of workItem.relations) {
+          const attributesName = relation.attributes.name;
+          if(attributesName == 'Branch') {
+            const repoUrl:string = relation.url;
+            const urlBaseLen:number = "vstfs:///Git/Ref/".length;
+            const decodeUrl:string = decodeURIComponent(repoUrl);
+            const urlPart:string = decodeUrl.substring(urlBaseLen);
+            const urlParts:string[] = urlPart.split('/');
+            const comment:string = relation.attributes.comment;
+            let regexp = new RegExp('(?<=\\[ver:).*?(?=\\])');
+            let version:string = String(regexp.exec(comment));
+            if(version=='' || version==null || version=='null') {
+              version='';
+            } 
+
+            const pr:PR = {
+              id:'',
+              repoId:urlParts[1],
+              repoName:'',
+              url:'',
+              title:'',
+              description:'',
+              status:'',
+              mergeStatus:'',
+              soruceBranch:'',
+              targetBranch:'',
+              vote:0,
+              lastMergeSourceCommitId:'',
+              lastMergeTargetCommitId:'',
+              version:version,
+              versionComment:'',
+              isDupPR: false
+            };
+
+            _wiRepos.push(pr);
+          }
+          linkNum++;
+        }
+
+      }
+
+      resolve(_wiRepos);
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+};
+
+const getPRsSingleWithAPI = (workItemId: string, prs: PR[]) => {
   return new Promise(async (resolve, reject) => {
     try {
       getPRErrorStatus.value = '';
-      let prs:PR[] = [];
+
+      const dupPRs:PR[] = [];
 
       const response = await axios.get(url + '/' + project  + '/_apis/wit/workitems/' + workItemId, 
           { 
@@ -340,11 +418,29 @@ const getPRsSingleWithAPI = (workItemId: string) => {
             targetBranch:'',
             vote:0,
             lastMergeSourceCommitId:'',
-            lastMergeTargetCommitId:''
+            lastMergeTargetCommitId:'',
+            version:'',
+            versionComment:'',
+            isDupPR: true
           };
 
-          prs.push(pr);
+          for(let _pr of prs) {
+            if(_pr.repoId == pr.repoId) {
+              if(_pr.id=='') {
+                _pr.id = pr.id;
+              } else {
+                dupPRs.push(pr);
+              }
+            }
+
+          }
+
         }
+      }
+
+      for(let _pr of dupPRs) {
+        prs.push(_pr);
+
       }
 
       resolve(prs);
@@ -393,6 +489,10 @@ const setPRDitailsSingleWithAPI = (prs: PR[]) => {
   return new Promise(async (resolve, reject) => {
       for(let pr of prs) {
         try {
+
+          if(pr.id == '') {
+            continue;
+          }
 
           const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId + '/pullrequests/' + pr.id, 
               { 
@@ -454,9 +554,11 @@ const setPRDitailsSingleWithAPI = (prs: PR[]) => {
 const getPRsSingle = async (workItemId: string) => {
 
   try {
-    let _prs: PR[] = await getPRsSingleWithAPI(workItemId) as PR[];
+    let _prs: PR[] = await getWIReposSingleWithAPI(workItemId) as PR[];
+    _prs = await getPRsSingleWithAPI(workItemId, _prs) as PR[];
     _prs = await setPRDitailsSingleWithAPI(_prs) as PR[];
     _prs = await setRepoNameForReposSingleWithAPI(_prs) as PR[];
+
     prs.value = _prs;
 
 
@@ -573,6 +675,7 @@ const getStatus = (status: string, vote: number) => {
         <div class='errorStatusbox'>{{updatePRErrorStatus}}</div>
         <div class='successStatusbox'>{{debug}}</div>
       </div>
+
 
     </article>
   </div>

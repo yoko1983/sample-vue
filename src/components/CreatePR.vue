@@ -6,11 +6,6 @@ import axios from "axios"
 import { useCookies } from "vue3-cookies";
 import Title from '@/components/Title.vue'
 
-interface WorkItem {
-  id: string
-  title: string 
-}
-
 interface Repo {
   id: string
   name: string
@@ -190,7 +185,7 @@ const getReposSingleWithAPI = (workItemId: string) => {
   return new Promise(async (resolve, reject) => {
     try {
       getRepoErrorStatus.value = '';
-      repos.value = [];
+      const repos:Repo[] = [];
 
       const response = await axios.get(url + '/' + project  + '/_apis/wit/workitems/' + workItemId, 
           { 
@@ -225,11 +220,11 @@ const getReposSingleWithAPI = (workItemId: string) => {
             status:0
           };
 
-          repos.value.push(repo);
+          repos.push(repo);
         }
       }
 
-      resolve(repos.value);
+      resolve(repos);
 
     } catch (error) {
       reject(error);
@@ -238,10 +233,10 @@ const getReposSingleWithAPI = (workItemId: string) => {
 
 };
 
-const setRepoNameForReposSingleWithAPI = () => {
+const setRepoNameForReposSingleWithAPI = (repos: Repo[] ) => {
   return new Promise(async (resolve, reject) => {
     try {
-      for(let repo of repos.value) {
+      for(let repo of repos) {
 
         const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id, 
             { 
@@ -259,11 +254,11 @@ const setRepoNameForReposSingleWithAPI = () => {
           
         repo.name = responseGit.data.name;
       }
-      repos.value = repos.value.sort(function(a:Repo, b:Repo) {
+      repos = repos.sort(function(a:Repo, b:Repo) {
         return (a.name < b.name) ? -1 : 1;
       });
 
-      resolve(repos.value);
+      resolve(repos);
     } catch (error) {
       reject(error);
     }
@@ -271,9 +266,9 @@ const setRepoNameForReposSingleWithAPI = () => {
 
 };
 
-const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:string, top:number) => {
+const setDiffForReposSingleWithAPI = (repos:Repo[], sourceBranchName:string, targetBranchName:string, top:number) => {
   return new Promise(async (resolve, reject) => {
-      for(let repo of repos.value) {
+      for(let repo of repos) {
         try {
 
           const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/diffs/commits', 
@@ -297,7 +292,7 @@ const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:
           } else {
             repo.diff = 1;
           }
-          resolve(repos.value);
+          resolve(repos);
         } catch (error) {
           reject(error);
           
@@ -309,9 +304,9 @@ const setDiffForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:
 
 };
 
-const setActivePRForReposSingleWithAPI = (sourceBranchName:string, targetBranchName:string) => {
+const setActivePRForReposSingleWithAPI = (repos:Repo[], sourceBranchName:string, targetBranchName:string) => {
   return new Promise(async (resolve, reject) => {
-      for(let repo of repos.value) {
+      for(let repo of repos) {
         try {
 
           const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/pullrequests', 
@@ -337,7 +332,7 @@ const setActivePRForReposSingleWithAPI = (sourceBranchName:string, targetBranchN
 
           }
           
-          resolve(repos.value);
+          resolve(repos);
 
         } catch (error) {
           reject(error);
@@ -354,24 +349,26 @@ const setActivePRForReposSingleWithAPI = (sourceBranchName:string, targetBranchN
 const getReposSingle = async (workItemId: string) => {
 
   try {
-    await getReposSingleWithAPI(workItemId);
-    await setRepoNameForReposSingleWithAPI();
+    let _repos = await getReposSingleWithAPI(workItemId) as Repo[];
+    await setRepoNameForReposSingleWithAPI(_repos);
     if(radioboxBranch.value == "branchTarget1") {
-      await setDiffForReposSingleWithAPI(branchSource1, branchTarget1, 1);
-      await setActivePRForReposSingleWithAPI(branchSource1, branchTarget1);
+      await setDiffForReposSingleWithAPI(_repos, branchSource1, branchTarget1, 1);
+      await setActivePRForReposSingleWithAPI(_repos, branchSource1, branchTarget1);
     }
     else if(radioboxBranch.value == "branchTarget2") {
-      await setDiffForReposSingleWithAPI(branchSource2, branchTarget2, 1);
-      await setActivePRForReposSingleWithAPI(branchSource2, branchTarget2);
+      await setDiffForReposSingleWithAPI(_repos, branchSource2, branchTarget2, 1);
+      await setActivePRForReposSingleWithAPI(_repos, branchSource2, branchTarget2);
     }
     else if(radioboxBranch.value == "branchTarget3") {
-      await setDiffForReposSingleWithAPI(branchSource3, branchTarget3, 1);
-      await setActivePRForReposSingleWithAPI(branchSource3, branchTarget3);
+      await setDiffForReposSingleWithAPI(_repos, branchSource3, branchTarget3, 1);
+      await setActivePRForReposSingleWithAPI(_repos, branchSource3, branchTarget3);
     }
     else if(radioboxBranch.value == "branchTarget4") {
-      await setDiffForReposSingleWithAPI(branchSource4, branchTarget4, 1);
-      await setActivePRForReposSingleWithAPI(branchSource4, branchTarget4);
+      await setDiffForReposSingleWithAPI(_repos, branchSource4, branchTarget4, 1);
+      await setActivePRForReposSingleWithAPI(_repos, branchSource4, branchTarget4);
     }
+
+    repos.value = _repos;
 
 
   } catch(error) {

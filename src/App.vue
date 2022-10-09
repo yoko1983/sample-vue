@@ -7,6 +7,7 @@ import Settings from '@/components/Setting.vue'
 import CreatePR from '@/components/CreatePR.vue'
 import EditRepo from '@/components/EditRepo.vue'
 import MergePR from '@/components/MergePR.vue'
+import MergePRByRepo from '@/components/MergePRByRepo.vue'
 import { useCookies } from "vue3-cookies";
 
 const { cookies } = useCookies();
@@ -58,6 +59,8 @@ const change = (menu: string) => {
     /
     <a v-on:click="change('MergePR')"  v-bind:class="{'active': isActive === 'MergePR'}">MergePR</a>
     /
+    <a v-on:click="change('MergePRByRepo')"  v-bind:class="{'active': isActive === 'MergePRByRepo'}">MergePRByRepo</a>
+    /
     <a v-on:click="change('Setting')"  v-bind:class="{'active': isActive === 'Setting'}">Setting</a>
   </header>
   <article v-if="isActive === 'EditRepo'">
@@ -68,6 +71,9 @@ const change = (menu: string) => {
   </article>
   <article v-if="isActive === 'MergePR'">
     <MergePR />
+  </article>
+  <article v-if="isActive === 'MergePRByRepo'">
+    <MergePRByRepo />
   </article>
   <article v-if="isActive === 'Setting'">
     <Settings />
