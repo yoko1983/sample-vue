@@ -12,7 +12,9 @@
     "lib": [
       "es2021",
       "esnext.promise",
-      "esnext.weakref"
+      "esnext.weakref",
+      "es6",
+      "dom"
     ]
   }
 }

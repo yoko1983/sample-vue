@@ -54,39 +54,12 @@ const updatePRSingleWithAPI =
 
     try {
 
-      getReviewerIdSingleWithAPI();
-
-      const getResponse = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' + pr.id,
-          { 
-                auth: {
-                  username: '',
-                  password: token
-                },
-                params: {
-                  'api-version':'5.1'
-                },
-                validateStatus: function (status) {
-                  return status == 200;
-                }
-          })
-
-
       const request = {
         'status': 'completed',
         'lastMergeSourceCommit' : {
-          'commitId' : getResponse.data.lastMergeSourceCommit.commitId
+          'commitId' : pr.lastMergeSourceCommitId
         }
       };
-
-      debug.value = getResponse.data.lastMergeSourceCommit.commitId;
-
-      // debug.value = reviewerId.value;
-
-      // debug.value= request.lastMergeSourceCommit;
-
-      // debug.value = String(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' + pr.id + '?'+request);
-
-
 
       const response = await axios.patch(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' + pr.id,
           request, 
@@ -96,13 +69,13 @@ const updatePRSingleWithAPI =
                   password: token
                 },
                 headers: { 
-                  'Content-Type': 'application/json-patch+json'
+                  'Content-Type': 'application/json'
                 },
                 params: {
                   'api-version':'5.1'
                 },
                 validateStatus: function (status) {
-                  return status == 415;
+                  return status == 200;
                 }
           })
 
@@ -114,35 +87,6 @@ const updatePRSingleWithAPI =
       reject(error);
     }
 
-    // const request = {
-    //   'comment': 'Merged PR ' + pr.id + ': ' + pr.title,
-    //   'parents': [pr.lastMergeSourceCommitId, pr.lastMergeTargetCommitId]
-    // };
-
-
-    // try {
-    //   const response = await axios.post(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/merges',
-    //       request, 
-    //       { 
-    //             auth: {
-    //               username: '',
-    //               password: token
-    //             },
-    //             headers: { 
-    //               'Content-Type': 'application/json'
-    //             },
-    //             params: {
-    //               'api-version':'5.1'
-    //             },
-    //             validateStatus: function (status) {
-    //               return status == 201;
-    //             }
-    //       })
-
-    //   resolve(response);
-    // } catch (error) {
-    //   reject(error);
-    // }
   });
 
 };
@@ -157,23 +101,14 @@ const updatePRsSingle = async (workItemId: string) => {
         try {
           const response:any = 
             await updatePRSingleWithAPI(pr, workItemId); 
-          debug.value = response.data;
 
-          // const prUrl:string = response.data.artifactId;
-          // const urlBaseLen:number = "vstfs:///Git/PullRequestId/".length;
-          // const decodeUrl:string = decodeURIComponent(prUrl);
-          // const urlPart:string = decodeUrl.substring(urlBaseLen);
-          // const urlParts:string[] = urlPart.split('/');
-          // repo.prId=urlParts[2];
-          // repo.status=1;
         } catch(error) {
           updatePRErrorStatus.value = String(error);
-          // repo.status=2;
         }
         break;
       }
     }
-    getPRsSingle(workItemId);
+    await getPRsSingle(workItemId);
   }
 
 
@@ -236,7 +171,7 @@ const approvePRsSingle = async () => {
         }
       }
     }
-    getPRsSingle(workItemId.value);
+    await getPRsSingle(workItemId.value);
 
   } catch (error) {
     updatePRErrorStatus.value = String(error);
