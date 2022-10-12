@@ -25,11 +25,15 @@ interface PR {
   vote: number
   lastMergeSourceCommitId: string
   lastMergeTargetCommitId: string
+  version: string
+  versionComment: string
+  comment: string
+  count: number
 }
 
 const debug: Ref<string> = ref<string>('');
 
-const prs: Ref<PR[]> = ref([])
+const prs: Ref<PR[]> = ref([]);
 const getPRErrorStatus: Ref<string> = ref<string>('');
 const updatePRErrorStatus: Ref<string> = ref<string>('');
 const wiPRsCheckbox = ref([]);
@@ -45,14 +49,15 @@ const workItemId: Ref<string> = ref<string>('');
 
 const reviewerId: Ref<string> = ref<string>('');
 
+const wiPRsAllCheckbox: Ref<boolean> = ref<boolean>(false);
 
-const updatePRSingleWithAPI = 
+
+const mergePRSingleWithAPI = 
   (pr: PR, workItemId: string) => {
-  return new Promise(async (resolve, reject) => {
-
-
+  return new Promise(async (resolve: (value?: string) => void, reject: (reason?: any) => void) => {
 
     try {
+
 
       const request = {
         'status': 'completed',
@@ -79,10 +84,33 @@ const updatePRSingleWithAPI =
                 }
           })
 
-          debug.value = response.request
-          debug.value = "test";
+          console.log('start');
+          let status = '';
+          for (let i = 0; i < 50; i++){
+            await new Promise(s => setTimeout(s, 200));
 
-      resolve(response);
+            const responseGet = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' + pr.id,
+            { 
+                  auth: {
+                    username: '',
+                    password: token
+                  },
+                  params: {
+                    'api-version':'5.1'
+                  },
+                  validateStatus: function (status) {
+                    return status == 200;
+                  }
+            })
+
+            status = responseGet.data.status;
+
+            if(responseGet.data.status=='completed') {
+              break;
+            } 
+
+          }
+      resolve(status);
     } catch (error) {
       reject(error);
     }
@@ -91,7 +119,7 @@ const updatePRSingleWithAPI =
 
 };
 
-const updatePRsSingle = async (workItemId: string) => {
+const mergePRsSingle = async (workItemId: string) => {
 
   for (let prId of wiPRsCheckbox.value) {
 
@@ -99,8 +127,12 @@ const updatePRsSingle = async (workItemId: string) => {
 
       if(pr.id == prId) {
         try {
-          const response:any = 
-            await updatePRSingleWithAPI(pr, workItemId); 
+          const response = 
+            await mergePRSingleWithAPI(pr, workItemId);
+
+            if(response!='completed') {
+              updatePRErrorStatus.value = 'Merge may have failed.';
+            }
 
         } catch(error) {
           updatePRErrorStatus.value = String(error);
@@ -116,15 +148,15 @@ const updatePRsSingle = async (workItemId: string) => {
 
 }
 
-const updatePRs = (workItemId: string) => {
+const mergePRs = (workItemId: string) => {
   updatePRErrorStatus.value =  '';
-  updatePRsSingle(workItemId);
+  mergePRsSingle(workItemId);
 
 }
 
 
 const approvePRSingleWithAPI = (pr: PR, reviewerId: string) => {
-  return new Promise(async (resolve, reject) => {
+  return new Promise(async (resolve: (value?: any) => void, reject: (reason?: any) => void) => {
 
     try {
 
@@ -230,12 +262,88 @@ const approvePRs = () => {
 
 }
 
+const getWIReposSingleWithAPI = (workItemId: string) => {
+  return new Promise(async (resolve, reject) => {
+    try {
 
-const getPRsSingleWithAPI = (workItemId: string) => {
+      const response = await axios.get(url + '/' + project  + '/_apis/wit/workitems/' + workItemId, 
+          { 
+                auth: {
+                  username: '',
+                  password: token
+                },
+                params: {
+                  '$expand': 'all',
+                  'api-version':'5.1'
+                },
+                validateStatus: function (status) {
+                  return status == 200;
+                }
+          })
+
+      const workItem = response.data;
+      let linkNum:number = 0;
+      const _wiRepos:PR[] = [];
+      if(workItem.relations != null) {
+
+        for(let relation of workItem.relations) {
+          const attributesName = relation.attributes.name;
+          if(attributesName == 'Branch') {
+            const repoUrl:string = relation.url;
+            const urlBaseLen:number = "vstfs:///Git/Ref/".length;
+            const decodeUrl:string = decodeURIComponent(repoUrl);
+            const urlPart:string = decodeUrl.substring(urlBaseLen);
+            const urlParts:string[] = urlPart.split('/');
+            const comment:string = relation.attributes.comment;
+            let regexp = new RegExp('(?<=\\[ver:).*?(?=\\])');
+            let version:string = String(regexp.exec(comment));
+            if(version=='' || version==null || version=='null') {
+              version='';
+            } 
+
+            const pr:PR = {
+              id:'',
+              repoId:urlParts[1],
+              repoName:'',
+              url:'',
+              title:'',
+              description:'',
+              status:'',
+              mergeStatus:'',
+              soruceBranch:'',
+              targetBranch:'',
+              vote:0,
+              lastMergeSourceCommitId:'',
+              lastMergeTargetCommitId:'',
+              version:version,
+              versionComment:'',
+              comment: '',
+              count: 0
+            };
+
+            _wiRepos.push(pr);
+          }
+          linkNum++;
+        }
+
+      }
+
+      resolve(_wiRepos);
+
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+};
+
+const getPRsSingleWithAPI = (workItemId: string, prs: PR[]) => {
   return new Promise(async (resolve, reject) => {
     try {
       getPRErrorStatus.value = '';
-      let prs:PR[] = [];
+
+      const dupPRs:PR[] = [];
+      const noRepos:PR[] = [];
 
       const response = await axios.get(url + '/' + project  + '/_apis/wit/workitems/' + workItemId, 
           { 
@@ -275,11 +383,56 @@ const getPRsSingleWithAPI = (workItemId: string) => {
             targetBranch:'',
             vote:0,
             lastMergeSourceCommitId:'',
-            lastMergeTargetCommitId:''
+            lastMergeTargetCommitId:'',
+            version:'',
+            versionComment:'',
+            comment: '',
+            count: 0
           };
 
-          prs.push(pr);
+          let count:number = 0;
+          for(let _pr of prs) {
+            if(_pr.repoId == pr.repoId) {
+              _pr.count++;
+              count++;
+              if(_pr.id=='') {
+                _pr.id = pr.id;
+
+              } else {
+                pr.version = _pr.version;
+                dupPRs.push(pr);
+              }
+            }
+
+          }
+          if(count==0) {
+            noRepos.push(pr);
+          } 
         }
+      }
+
+      for(let _pr of noRepos) {
+        prs.push(_pr);
+        _pr.comment = 'NoLinkedRepo'
+
+      }
+
+      for(let _pr of dupPRs) {
+        prs.push(_pr);
+        _pr.comment = 'Duplicated'
+
+      }
+
+      for(let _pr of prs) {
+        if(_pr.id == '') {
+          _pr.comment = 'Nothing'
+        }
+
+        if(_pr.count > 1) {
+          _pr.comment = 'Duplicated'
+
+        }
+
       }
 
       resolve(prs);
@@ -328,6 +481,10 @@ const setPRDitailsSingleWithAPI = (prs: PR[]) => {
   return new Promise(async (resolve, reject) => {
       for(let pr of prs) {
         try {
+
+          if(pr.id == '') {
+            continue;
+          }
 
           const responseGit = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId + '/pullrequests/' + pr.id, 
               { 
@@ -384,14 +541,101 @@ const setPRDitailsSingleWithAPI = (prs: PR[]) => {
 
 };
 
+const getVersionAtRepoSingleWithAPI = (pr: PR, versionFile: string, branchName: string) => {
+  return new Promise(async (resolve, reject) => {
 
+    try {
+
+      const response = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId + '/items', 
+          { 
+                auth: {
+                  username: '',
+                  password: token
+                },
+                params: {
+                  'path' : versionFile,
+                  'versionDescriptor.version': branchName,
+                  'versionDescriptor.versionType' : 'branch',
+                  'includeContent' : true,
+                  'api-version':'5.1'
+                },
+                validateStatus: function (status) {
+                  return status == 200 || status == 404;
+                }
+          })
+          let version: string = '';
+          if(response.status == 200) {
+            const parser = new DOMParser();
+            let xmlData  = parser.parseFromString(response.data.content,"text/xml");
+            let xmlProjectElement = xmlData.querySelector('project');
+            if(xmlProjectElement!=null) {
+              let xmlProjectChildElements = xmlProjectElement.childNodes;
+              for( let i in xmlProjectChildElements ) {
+                if (xmlProjectChildElements.hasOwnProperty(i)) {
+                  if(xmlProjectChildElements[i].nodeName == 'version') {
+                    version = String(xmlProjectChildElements[i].textContent);
+                  }
+                }
+              }
+            }
+          }
+
+      resolve(version);
+    } catch (error) {
+      reject(error);
+    }
+  });
+
+};
+
+const checkVersionAtRepoSingle = async (prs: PR[]) => {
+
+  try {
+
+    for (let pr of prs) {
+      let version: string = '';
+        version = await getVersionAtRepoSingleWithAPI(
+          pr, '/' + pr.repoName + '-container/pom.xml', pr.targetBranch) as string;
+
+        if(version!='') {
+          if(version==pr.version) {
+            pr.versionComment = 'OK';
+          } else {
+            pr.versionComment = 'NG: ' + version;
+          }
+        } else {
+          version = await getVersionAtRepoSingleWithAPI(
+            pr, '/pom.xml', pr.targetBranch) as string;
+
+          if(version!='') {
+            if(version==pr.version) {
+              pr.versionComment = 'OK';
+            } else {
+              pr.versionComment = 'NG: ' + version;
+            }
+
+          }
+
+        }
+    }
+
+    return prs;
+
+  } catch (error) {
+    getPRErrorStatus.value = String(error);
+  }
+
+}
 
 const getPRsSingle = async (workItemId: string) => {
 
   try {
-    let _prs: PR[] = await getPRsSingleWithAPI(workItemId) as PR[];
+    let _prs: PR[] = await getWIReposSingleWithAPI(workItemId) as PR[];
+    _prs = await getPRsSingleWithAPI(workItemId, _prs) as PR[];
     _prs = await setPRDitailsSingleWithAPI(_prs) as PR[];
     _prs = await setRepoNameForReposSingleWithAPI(_prs) as PR[];
+    _prs = await checkVersionAtRepoSingle(_prs) as PR[];
+
     prs.value = _prs;
 
 
@@ -440,6 +684,34 @@ const getStatus = (status: string, vote: number) => {
   }
 }
 
+const getBranch = (targetBranch: string, sourceBranch: string) => {
+  if(targetBranch!='' || sourceBranch!='') {
+    return sourceBranch + ' -> ' + targetBranch;
+  }
+  else {
+    return ''
+  }
+}
+
+const setVerionCommentColor = (versionComment: string) => {
+      if (versionComment.startsWith('OK')) {
+        return "blue";
+      }
+      if (versionComment.startsWith('NG')) {
+        return "red";
+      }
+}
+
+const selectAllForWiPRsCheckbox = () => {
+  wiPRsAllCheckbox.value = !wiPRsAllCheckbox.value;
+  wiPRsCheckbox.value.length=0;
+  if(wiPRsAllCheckbox.value) {
+    for(let pr of prs.value) {
+      wiPRsCheckbox.value.push(pr.id as never);
+    }
+  }
+
+}
 
 
 </script>
@@ -459,7 +731,7 @@ const getStatus = (status: string, vote: number) => {
         <label>WorkItem ID:</label>
       </div>
 
-      <div class='inputbox'>
+      <div class='smallInputBox'>
         <input type="text" v-model="workItemId">
       </div>
 
@@ -476,6 +748,38 @@ const getStatus = (status: string, vote: number) => {
         <label>Pull Requests:</label>
       </div>
 
+      <div class='repobox'>
+        <ul>
+          <li>
+            <input
+              type="checkbox"
+              v-model="wiPRsAllCheckbox"
+              @click="selectAllForWiPRsCheckbox();"
+            />
+            <div class="repoNameBox">
+              <label class="title">RepoName</label>
+            </div>
+            <div class="prStatusBox">
+              <label class="title">Status</label>
+            </div>
+            <div class="prIdBox">
+              <label class="title">ID</label>
+            </div>
+            <div class="prBranchBox">
+              <label class="title">Branch</label>
+            </div>
+            <div class="prCommentBox">
+              <label class="title">Comment</label>
+            </div>
+            <div class="prVersionBox">
+              <label class="title">Ver</label>
+            </div>
+            <div class="prVersionCommentBox">
+              <label class="title"></label>
+            </div>
+          </li>
+        </ul>
+      </div>
       <div v-for="pr in prs" class='repobox'>
         <ul>
           <li>
@@ -486,14 +790,31 @@ const getStatus = (status: string, vote: number) => {
               v-model="wiPRsCheckbox"
               v-bind:disabled="pr.status!='active'"
             />
-            <label :for="'pr.id'">{{pr.repoName}}</label>
-            <label :for="'pr.id'" :class="setStatusColor(pr.status, pr.vote)">{{getStatus(pr.status, pr.vote)}}</label>
-            <label :for="'pr.id'">
-              <a :href="url + project + '/_git/'+ pr.repoName +'/pullrequest/' + pr.id + '?_a=overview'" target="_blank">
-                  {{pr.id}}
-              </a>
-            </label>
-            <label :for="'pr.id'" class='smallFont'>({{pr.soruceBranch}} -> {{pr.targetBranch}})</label>
+            <div class="repoNameBox">
+              <label :for="'pr.id'">{{pr.repoName}}</label>
+            </div>
+            <div class="prStatusBox">
+              <label :for="'pr.id'" :class="setStatusColor(pr.status, pr.vote)">{{getStatus(pr.status, pr.vote)}}</label>
+            </div>
+            <div class="prIdBox">
+              <label :for="'pr.id'">
+                <a :href="url + project + '/_git/'+ pr.repoName +'/pullrequest/' + pr.id + '?_a=overview'" target="_blank">
+                    {{pr.id}}
+                </a>
+              </label>
+            </div>
+            <div class="prBranchBox">
+              <label :for="'pr.id'" class='smallFont'>{{getBranch(pr.soruceBranch, pr.targetBranch)}}</label>
+            </div>
+            <div class="prCommentBox">
+              <label :for="'pr.id'" class='red'>{{pr.comment}}</label>
+            </div>
+            <div class="prVersionBox">
+              <label :for="'pr.id'">{{pr.version}}</label>
+            </div>
+            <div class="prVersionCommentBox">
+              <label :for="'pr.id'" :class="setVerionCommentColor(pr.versionComment)">{{pr.versionComment}}</label>
+            </div>
           </li>
         </ul>
       </div>
@@ -502,12 +823,13 @@ const getStatus = (status: string, vote: number) => {
         <button @click="approvePRs(); ">
           Approve
         </button>
-        <button @click="updatePRs(workItemId); ">
+        <button @click="mergePRs(workItemId); ">
           Merge
         </button>
         <div class='errorStatusbox'>{{updatePRErrorStatus}}</div>
         <div class='successStatusbox'>{{debug}}</div>
       </div>
+
 
     </article>
   </div>
@@ -523,7 +845,7 @@ header {
 
 .labelbox {
 	/* padding:10px; */
-	width:500px;
+	width:300px;
 	margin-top:10px;
 }
 .labelbox label {
@@ -532,22 +854,31 @@ header {
 }
 
 .inputbox {
-	width:500px;
+	width:300px;
 	padding:5px;
 }
 .inputbox input {
   margin-left: 1em;
 	width:360px;
 }
+.smallInputBox {
+	width:300px;
+	padding:5px;
+}
+.smallInputBox input {
+  margin-left: 1em;
+	width:200px;
+}
+
 .repobox {
 	padding:0px;
 }
 .repobox ul {
-	width:750px;
+	width:1000px;
   list-style: none;
 }
 .repobox ul li {
-	width:750px;
+	width:1000px;
 	margin-bottom:5px;
 	padding-left:1em;
 	text-indent:-1em;
@@ -560,6 +891,49 @@ header {
 	text-indent:-1em;
 	line-height:1.4;
 }
+
+.repoNameBox {
+  display: inline-block; 
+	width:250px;
+	padding-left:1em;
+}
+
+
+.prStatusBox {
+  display: inline-block; 
+	width:55px;
+	padding-left:2em;
+}
+
+.prIdBox {
+  display: inline-block; 
+	width:50px;
+	padding-left:3em;
+}
+
+
+.prBranchBox {
+  display: inline-block; 
+	width:150px;
+	padding-left:2em;
+}
+.prCommentBox {
+  display: inline-block; 
+	width:50px;
+	padding-left:2em;
+}
+.prVersionBox {
+  display: inline-block; 
+	width:80px;
+	padding-left:5em;
+}
+.prVersionCommentBox {
+  display: inline-block; 
+	width:150px;
+	padding-left:4em;
+}
+
+
 .radiobox {
   margin-left: 10px
 }
@@ -602,6 +976,9 @@ header {
 .silver {
   color: silver;
   font-size: 80%;
+}
+.title {
+  color: gray;
 }
 .smallFont {
   font-size: 80%;
