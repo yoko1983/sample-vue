@@ -894,27 +894,27 @@ header {
 
 .repoNameBox {
   display: inline-block; 
-	width:250px;
+	width:230px;
 	padding-left:1em;
 }
 
 
 .prStatusBox {
   display: inline-block; 
-	width:55px;
+	width:60px;
 	padding-left:2em;
 }
 
 .prIdBox {
   display: inline-block; 
-	width:50px;
-	padding-left:3em;
+	width:80px;
+	padding-left:4em;
 }
 
 
 .prBranchBox {
   display: inline-block; 
-	width:150px;
+	width:280px;
 	padding-left:2em;
 }
 .prCommentBox {
@@ -924,12 +924,12 @@ header {
 }
 .prVersionBox {
   display: inline-block; 
-	width:80px;
+	width:100px;
 	padding-left:5em;
 }
 .prVersionCommentBox {
   display: inline-block; 
-	width:150px;
+	width:170px;
 	padding-left:4em;
 }
 
