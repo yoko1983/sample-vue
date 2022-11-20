@@ -26,7 +26,6 @@ interface PR {
   lastMergeSourceCommitId: string
   lastMergeTargetCommitId: string
   version: string
-  versionComment: string
   comment: string
   count: number
 }
@@ -295,11 +294,6 @@ const getWIReposSingleWithAPI = (workItemId: string) => {
             const urlPart:string = decodeUrl.substring(urlBaseLen);
             const urlParts:string[] = urlPart.split('/');
             const comment:string = relation.attributes.comment;
-            let regexp = new RegExp('(?<=\\[ver:).*?(?=\\])');
-            let version:string = String(regexp.exec(comment));
-            if(version=='' || version==null || version=='null') {
-              version='';
-            } 
 
             const pr:PR = {
               id:'',
@@ -315,8 +309,7 @@ const getWIReposSingleWithAPI = (workItemId: string) => {
               vote:0,
               lastMergeSourceCommitId:'',
               lastMergeTargetCommitId:'',
-              version:version,
-              versionComment:'',
+              version:'',
               comment: '',
               count: 0
             };
@@ -385,7 +378,6 @@ const getPRsSingleWithAPI = (workItemId: string, prs: PR[]) => {
             lastMergeSourceCommitId:'',
             lastMergeTargetCommitId:'',
             version:'',
-            versionComment:'',
             comment: '',
             count: 0
           };
@@ -399,7 +391,6 @@ const getPRsSingleWithAPI = (workItemId: string, prs: PR[]) => {
                 _pr.id = pr.id;
 
               } else {
-                pr.version = _pr.version;
                 dupPRs.push(pr);
               }
             }
@@ -588,35 +579,31 @@ const getVersionAtRepoSingleWithAPI = (pr: PR, versionFile: string, branchName: 
 
 };
 
-const checkVersionAtRepoSingle = async (prs: PR[]) => {
+const setVersionAtRepoSingle = async (prs: PR[]) => {
 
   try {
 
     for (let pr of prs) {
-      let version: string = '';
-        version = await getVersionAtRepoSingleWithAPI(
+      let targetVersion: string = '';
+      targetVersion = await getVersionAtRepoSingleWithAPI(
           pr, '/' + pr.repoName + '-container/pom.xml', pr.targetBranch) as string;
+      if(targetVersion=='') {
+        targetVersion = await getVersionAtRepoSingleWithAPI(
+          pr, '/pom.xml', pr.targetBranch) as string;
+      }
 
-        if(version!='') {
-          if(version==pr.version) {
-            pr.versionComment = 'OK';
-          } else {
-            pr.versionComment = 'NG: ' + version;
-          }
-        } else {
-          version = await getVersionAtRepoSingleWithAPI(
-            pr, '/pom.xml', pr.targetBranch) as string;
+      let sourceVersion: string = '';
+      sourceVersion = await getVersionAtRepoSingleWithAPI(
+          pr, '/' + pr.repoName + '-container/pom.xml', pr.soruceBranch) as string;
+      if(sourceVersion=='') {
+        sourceVersion = await getVersionAtRepoSingleWithAPI(
+          pr, '/pom.xml', pr.soruceBranch) as string;
+      }
 
-          if(version!='') {
-            if(version==pr.version) {
-              pr.versionComment = 'OK';
-            } else {
-              pr.versionComment = 'NG: ' + version;
-            }
+      if(targetVersion!='' || sourceVersion!='') {
+        pr.version = sourceVersion + ' -> ' + targetVersion
+      }
 
-          }
-
-        }
     }
 
     return prs;
@@ -634,7 +621,7 @@ const getPRsSingle = async (workItemId: string) => {
     _prs = await getPRsSingleWithAPI(workItemId, _prs) as PR[];
     _prs = await setPRDitailsSingleWithAPI(_prs) as PR[];
     _prs = await setRepoNameForReposSingleWithAPI(_prs) as PR[];
-    _prs = await checkVersionAtRepoSingle(_prs) as PR[];
+    _prs = await setVersionAtRepoSingle(_prs) as PR[];
 
     prs.value = _prs;
 
@@ -693,14 +680,6 @@ const getBranch = (targetBranch: string, sourceBranch: string) => {
   }
 }
 
-const setVerionCommentColor = (versionComment: string) => {
-      if (versionComment.startsWith('OK')) {
-        return "blue";
-      }
-      if (versionComment.startsWith('NG')) {
-        return "red";
-      }
-}
 
 const selectAllForWiPRsCheckbox = () => {
   wiPRsAllCheckbox.value = !wiPRsAllCheckbox.value;
@@ -774,9 +753,6 @@ const selectAllForWiPRsCheckbox = () => {
             <div class="prVersionBox">
               <label class="title">Ver</label>
             </div>
-            <div class="prVersionCommentBox">
-              <label class="title"></label>
-            </div>
           </li>
         </ul>
       </div>
@@ -810,10 +786,7 @@ const selectAllForWiPRsCheckbox = () => {
               <label :for="'pr.id'" class='red'>{{pr.comment}}</label>
             </div>
             <div class="prVersionBox">
-              <label :for="'pr.id'">{{pr.version}}</label>
-            </div>
-            <div class="prVersionCommentBox">
-              <label :for="'pr.id'" :class="setVerionCommentColor(pr.versionComment)">{{pr.versionComment}}</label>
+              <label :for="'pr.id'" class='smallFont'>{{pr.version}}</label>
             </div>
           </li>
         </ul>
@@ -874,11 +847,11 @@ header {
 	padding:0px;
 }
 .repobox ul {
-	width:1000px;
+	width:900px;
   list-style: none;
 }
 .repobox ul li {
-	width:1000px;
+	width:900px;
 	margin-bottom:5px;
 	padding-left:1em;
 	text-indent:-1em;
@@ -914,7 +887,7 @@ header {
 
 .prBranchBox {
   display: inline-block; 
-	width:280px;
+	width:150px;
 	padding-left:2em;
 }
 .prCommentBox {
@@ -924,13 +897,8 @@ header {
 }
 .prVersionBox {
   display: inline-block; 
-	width:100px;
+	width:150px;
 	padding-left:5em;
-}
-.prVersionCommentBox {
-  display: inline-block; 
-	width:170px;
-	padding-left:4em;
 }
 
 
