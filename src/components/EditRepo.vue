@@ -248,142 +248,6 @@ const addWIRepos = (workItemId: string) => {
 
 }
 
-const getVersionAtRepoSingleWithAPI = (repo: Repo, versionFile: string, branchName: string) => {
-  return new Promise(async (resolve, reject) => {
-
-    try {
-
-      const response = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + repo.id + '/items', 
-          { 
-                auth: {
-                  username: '',
-                  password: token
-                },
-                params: {
-                  'path' : versionFile,
-                  'versionDescriptor.version': branchName,
-                  'versionDescriptor.versionType' : 'branch',
-                  'includeContent' : true,
-                  'api-version':'5.1'
-                },
-                validateStatus: function (status) {
-                  return status == 200 || status == 404;
-                }
-          })
-          let version: string = '';
-          if(response.status == 200) {
-            const parser = new DOMParser();
-            let xmlData  = parser.parseFromString(response.data.content,"text/xml");
-            let xmlProjectElement = xmlData.querySelector('project');
-            if(xmlProjectElement!=null) {
-              let xmlProjectChildElements = xmlProjectElement.childNodes;
-              for( let i in xmlProjectChildElements ) {
-                if (xmlProjectChildElements.hasOwnProperty(i)) {
-                  if(xmlProjectChildElements[i].nodeName == 'version') {
-                    version = String(xmlProjectChildElements[i].textContent);
-                  }
-                }
-              }
-            }
-          }
-
-      resolve(version);
-    } catch (error) {
-      reject(error);
-    }
-  });
-
-};
-
-const setVersionAtRepoSingle = async () => {
-
-  try {
-
-    for (let repoId of wiReposCheckbox.value) {
-
-      for (let repo of wiRepos.value) {
-        let version: string = '';
-        if(repo.id == repoId) {
-          version = await getVersionAtRepoSingleWithAPI(
-            repo, '/' + repo.name + '-container/pom.xml', selectedBranches.value) as string;
-
-          if(version!='') {
-            repo.version = version;
-          } else {
-            version = await getVersionAtRepoSingleWithAPI(
-              repo, '/pom.xml', selectedBranches.value) as string;
-
-            if(version!='') {
-              repo.version = version;
-
-            }
-
-          }
-        }
-      }
-    }
-
-  } catch (error) {
-    addWiReposErrorStatus.value = String(error);
-  }
-
-}
-
-const setVersionAtRepo = () => {
-  if(wiRepos.value.length!=0) {
-    setVersionAtRepoSingle();
-  }
-
-}
-
-const checkVersionAtRepoSingle = async () => {
-
-try {
-
-  for (let repoId of wiReposCheckbox.value) {
-
-    for (let repo of wiRepos.value) {
-      let version: string = '';
-      if(repo.id == repoId) {
-        version = await getVersionAtRepoSingleWithAPI(
-          repo, '/' + repo.name + '-container/pom.xml', selectedBranches.value) as string;
-
-        if(version!='') {
-          if(version==repo.version) {
-            repo.versionComment = 'OK';
-          } else {
-            repo.versionComment = 'NG: ' + version;
-          }
-        } else {
-          version = await getVersionAtRepoSingleWithAPI(
-            repo, '/pom.xml', selectedBranches.value) as string;
-
-          if(version!='') {
-            if(version==repo.version) {
-              repo.versionComment = 'OK';
-            } else {
-              repo.versionComment = 'NG: ' + version;
-            }
-
-          }
-
-        }
-      }
-    }
-  }
-
-} catch (error) {
-  addWiReposErrorStatus.value = String(error);
-}
-
-}
-
-const checkVersionAtRepo = () => {
-if(wiRepos.value.length!=0) {
-  checkVersionAtRepoSingle();
-}
-
-}
 
 
 const getWIReposSingleWithAPI = (workItemId: string):Promise<Repo[]> => {
@@ -666,6 +530,7 @@ const updateWIRepos = (workItemId: string) => {
   }
 }
 
+
 const selectAllForWiReposCheckbox = () => {
   wiReposAllCheckbox.value = !wiReposAllCheckbox.value;
   wiReposCheckbox.value.length=0;
@@ -677,25 +542,6 @@ const selectAllForWiReposCheckbox = () => {
 
 }
 
-
-const validateVersionForSetColor = (version: string) => {
-  let regexp = new RegExp('^(\\d+\\.)+(\\d+\\.)+(\\d+\\.)+(\\d+)$');
-  if(version=='' || regexp.test(version)) {
-    return 'background_success';
-  } else {
-    return 'background_error';
-  }
-}
-
-
-const setVerionCommentColor = (versionComment: string) => {
-      if (versionComment.startsWith('OK')) {
-        return "blue";
-      }
-      if (versionComment.startsWith('NG')) {
-        return "red";
-      }
-}
 
 </script>
 
@@ -723,6 +569,20 @@ const setVerionCommentColor = (versionComment: string) => {
         <label>[ {{workItemId}} ] {{workItemTitle}} :</label>
       </div>
 
+      <div class='repoBox'>
+        <ul>
+          <li>
+            <input
+              type="checkbox"
+              v-model="wiReposAllCheckbox"
+              @click="selectAllForWiReposCheckbox();"
+            />
+            <div class="repoNameBox">
+              <label class="title">RepoName</label>
+            </div>
+          </li>
+        </ul>
+      </div>      
       <div v-for="repo, index in wiRepos " class='repoBox'>
         <ul>
           <li>
@@ -735,32 +595,6 @@ const setVerionCommentColor = (versionComment: string) => {
             <div class="repoNameBox">
               <label :for="'repo.name'">{{repo.name}}</label>
             </div>
-            <div class="versionBox">
-              <input
-                type="text" 
-                v-model="wiRepos[index].version"
-                :class="validateVersionForSetColor(wiRepos[index].version)"
-              />
-            </div>
-            <label
-             :for="'repo.name'"
-             :class="setVerionCommentColor(repo.versionComment)">
-              {{repo.versionComment}}
-            </label>
-          </li>
-        </ul>
-      </div>
-      <div class='repoBox'>
-        <ul>
-          <li>
-            <input
-              type="checkbox"
-              v-model="wiReposAllCheckbox"
-              @click="selectAllForWiReposCheckbox();"
-            />
-            <div class="repoNameBox">
-              <label>Select All</label>
-            </div>
           </li>
         </ul>
       </div>
@@ -768,30 +602,11 @@ const setVerionCommentColor = (versionComment: string) => {
         <button @click="delWIRepos(workItemId)">
           Delete
         </button>
-        <div class='statusbox'>{{delWiReposSuccessStatus}}</div>
-        <div class='errorStatusbox'>{{delWiReposErrorStatus}}</div>
-      </div>
-      <div class='labelbox'>
-        <label>Version :</label>
-      </div>
-      <div class='inputbox'>
-        <select v-model="selectedBranches">
-          <option disabled value="">Branch List</option>
-          <option v-for="branch in optionBranches" 
-            v-bind:value="branch.name" 
-            v-bind:key="branch.id">
-          {{ branch.name }}
-          </option>
-        </select>
-        <button @click="setVersionAtRepo()">
-          Set
-        </button>
-        <button @click="checkVersionAtRepo()">
-          Check
-        </button>
         <button @click="updateWIRepos(workItemId)">
           Save
         </button>
+        <div class='statusbox'>{{delWiReposSuccessStatus}}</div>
+        <div class='errorStatusbox'>{{delWiReposErrorStatus}}</div>
         <div class='statusbox'>{{updateWiReposSuccessStatus}}</div>
         <div class='errorStatusbox'>{{updateWiReposErrorStatus}}</div>
       </div>
@@ -906,26 +721,8 @@ const setVerionCommentColor = (versionComment: string) => {
 	padding-left:1em;
 }
 
-.lighterBox {
-  display: inline-block; 
-	width:300px;
-	padding-left:1em;
-}
-
-.lighterBox label {
-  font-weight: lighter;
-	padding-left:1em;
-}
-
-
-
-.versionBox {
-  display: inline-block; 
-  text-align:right
-}
-
-.versionBox input {
-	width:80px;
+.title {
+  color: gray;
 }
 
 
@@ -937,30 +734,6 @@ const setVerionCommentColor = (versionComment: string) => {
   margin-left: 1em;
   color: red;
 }
-
-.memberList {
-  color: wheat;
-}
-.blue {
-  color: blue;
-  font-size: 80%;
-  margin-left: 1em;
-}
-.green {
-  color: gleen;
-}
-.red {
-  color: red;
-  font-size: 80%;
-  margin-left: 1em;
-}
-.background_error {
-  background-color: #f09199;
-}
-.background_success {
-  background-color: white;
-}
-
 
 @media (min-width: 1024px) {
   .main-grid {

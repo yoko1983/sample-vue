@@ -530,6 +530,27 @@ const setDiffColor = (diff: number) => {
         <label>Repositories:</label>
       </div>
 
+      <div class='repobox'>
+        <ul>
+          <li>
+            <input
+              type="checkbox"
+              v-model="wiReposAllCheckbox"
+              @click="selectAllForWiReposCheckbox();"
+            />
+            <div class="repoNameBox">
+              <label class="title">RepoName</label>
+            </div>
+            <div class="repoDiffBox">
+              <label class="title">BranchDiff</label>
+            </div>
+            <div class="repoPRBox">
+              <label class="title">PR</label>
+            </div>
+          </li>
+        </ul>
+      </div>      
+
       <div v-for="repo in repos" class='repobox'>
         <ul>
           <li>
@@ -540,32 +561,26 @@ const setDiffColor = (diff: number) => {
             v-model="wiReposCheckbox"
             v-bind:disabled="repo.diff==0 || repo.status==1"
           />
-          <label :for="'repo.id'">{{repo.name}}</label>
-          <label :for="'repo.id'"  :class="setDiffColor(repo.diff)">
-            {{setDiffText(repo.diff)}}
-          </label>
-          <label :for="'repo.id'"  :class="setStatusColor(repo.status)" >
-            <div class="prStatusBox" v-show="repo.status==1">
-              <a :href="url + project + '/_git/' + repo.name + '/pullrequest/' + repo.prId + '?_a=overview'" target="_blank">
-                {{repo.prId}}
-              </a>
-            </div>
-            <div class="prStatusBox" v-show="repo.status==2">
-              NG
-            </div>
-          </label>
-          </li>
-        </ul>
-      </div>
-      <div class='repobox'>
-        <ul>
-          <li>
-            <input
-              type="checkbox"
-              v-model="wiReposAllCheckbox"
-              @click="selectAllForWiReposCheckbox();"
-            />
-            <label>Select All</label>
+          <div class="repoNameBox">
+            <label :for="'repo.id'">{{repo.name}}</label>
+          </div>
+          <div class="repoDiffBox">
+            <label :for="'repo.id'"  :class="setDiffColor(repo.diff)">
+              {{setDiffText(repo.diff)}}
+            </label>
+          </div>
+          <div class="repoPRBox">
+            <label :for="'repo.id'"  :class="setStatusColor(repo.status)" >
+              <div class="prStatusBox" v-show="repo.status==1">
+                <a :href="url + project + '/_git/' + repo.name + '/pullrequest/' + repo.prId + '?_a=overview'" target="_blank">
+                  {{repo.prId}}
+                </a>
+              </div>
+              <div class="prStatusBox" v-show="repo.status==2">
+                NG
+              </div>
+            </label>
+          </div>
           </li>
         </ul>
       </div>
@@ -613,18 +628,18 @@ header {
 	padding:0px;
 }
 .repobox ul {
-	width:500px;
+	width:900px;
   list-style: none;
 }
 .repobox ul li {
-	width:500px;
+	width:900px;
 	margin-bottom:5px;
 	padding-left:1em;
 	text-indent:-1em;
 	line-height:1.4;
 }
 .repobox ul li label {
-	width:500px;
+	width:900px;
 	margin-bottom:5px;
 	padding-left:1em;
 	text-indent:-1em;
@@ -648,6 +663,42 @@ header {
 .prStatusBox a:hover {
     background-color: hsla(160, 100%, 37%, 0.2);
 }
+
+
+.repoNameBox {
+  display: inline-block; 
+	width:300px;
+	padding-left:1em;
+}
+
+.repoNameBox label {
+	padding-left:1em;
+}
+
+.repoDiffBox {
+  display: inline-block; 
+	width:100px;
+	padding-left:1em;
+}
+
+.repoDiffBox label {
+	padding-left:1em;
+}
+
+.repoPRBox {
+  display: inline-block; 
+	width:10px;
+	padding-left:1em;
+}
+
+.repoPRBox label {
+	padding-left:1em;
+}
+
+.title {
+  color: gray;
+}
+
 
 .statusbox {
   margin-left: 1em;
