@@ -20,16 +20,16 @@ const branchTarget1:string = 'branch1';
 const branchTarget2:string = 'branch2';
 const branchTarget3:string = 'branch3';
 const branchTarget4:string = 'master';
-const branchSource1:string = 'branch1';
-const branchSource2:string = 'branch2';
-const branchSource3:string = 'branch3';
-const branchSource4:string = 'test_diff';
+const branchSource1:string = 'test';
+const branchSource2:string = 'branch1';
+const branchSource3:string = 'branch2';
+const branchSource4:string = 'branch3';
 
 const repos: Ref<Repo[]> = ref([])
 const getRepoErrorStatus: Ref<string> = ref<string>('');
 const createPRErrorStatus: Ref<string> = ref<string>('');
 const wiReposCheckbox = ref([]);
-const radioboxBranch: Ref<string> = ref<string>('branchTarget2');
+const radioboxBranch: Ref<string> = ref<string>('branch2');
 const prTitle: Ref<string> = ref<string>('');
 const prDescription: Ref<string> = ref<string>('');
 const linkingWorkItemIds: Ref<string[]> = ref([]);
@@ -167,6 +167,8 @@ const createPRsSingle = async (workItemId: string) => {
       }
     }
   }
+  wiReposAllCheckbox.value =false;
+  wiReposCheckbox.value.length=0;
 
 
 
@@ -227,6 +229,7 @@ const getReposSingleWithAPI = (workItemId: string) => {
       resolve(repos);
 
     } catch (error) {
+      getRepoErrorStatus.value = "getRepos" +String(error)
       reject(error);
     }
   });
@@ -260,6 +263,7 @@ const setRepoNameForReposSingleWithAPI = (repos: Repo[] ) => {
 
       resolve(repos);
     } catch (error) {
+      getRepoErrorStatus.value = "setRepoNameForRepos" +String(error)
       reject(error);
     }
   });
@@ -287,15 +291,16 @@ const setDiffForReposSingleWithAPI = (repos:Repo[], sourceBranchName:string, tar
                       return status == 200;
                     }
               })
-          if(responseGit.data.aheadCount==0 && responseGit.data.behindCount==0) {
+
+          if(responseGit.data.aheadCount==0) {
             repo.diff = 0;
           } else {
             repo.diff = 1;
           }
           resolve(repos);
         } catch (error) {
+          getRepoErrorStatus.value = "setDiffForRepos" +String(error)
           reject(error);
-          
         }
 
     }
@@ -335,8 +340,8 @@ const setActivePRForReposSingleWithAPI = (repos:Repo[], sourceBranchName:string,
           resolve(repos);
 
         } catch (error) {
+          getRepoErrorStatus.value = "setActivePRForRepos" +String(error)
           reject(error);
-          
         }
 
     }
@@ -349,30 +354,28 @@ const setActivePRForReposSingleWithAPI = (repos:Repo[], sourceBranchName:string,
 const getReposSingle = async (workItemId: string) => {
 
   try {
-    let _repos = await getReposSingleWithAPI(workItemId) as Repo[];
-    await setRepoNameForReposSingleWithAPI(_repos);
+    repos.value = await getReposSingleWithAPI(workItemId) as Repo[];
+    await setRepoNameForReposSingleWithAPI(repos.value);
     if(radioboxBranch.value == "branchTarget1") {
-      await setDiffForReposSingleWithAPI(_repos, branchSource1, branchTarget1, 1);
-      await setActivePRForReposSingleWithAPI(_repos, branchSource1, branchTarget1);
+      await setDiffForReposSingleWithAPI(repos.value, branchSource1, branchTarget1, 1);
+      await setActivePRForReposSingleWithAPI(repos.value, branchSource1, branchTarget1);
     }
     else if(radioboxBranch.value == "branchTarget2") {
-      await setDiffForReposSingleWithAPI(_repos, branchSource2, branchTarget2, 1);
-      await setActivePRForReposSingleWithAPI(_repos, branchSource2, branchTarget2);
+      await setDiffForReposSingleWithAPI(repos.value, branchSource2, branchTarget2, 1);
+      await setActivePRForReposSingleWithAPI(repos.value, branchSource2, branchTarget2);
     }
     else if(radioboxBranch.value == "branchTarget3") {
-      await setDiffForReposSingleWithAPI(_repos, branchSource3, branchTarget3, 1);
-      await setActivePRForReposSingleWithAPI(_repos, branchSource3, branchTarget3);
+      await setDiffForReposSingleWithAPI(repos.value, branchSource3, branchTarget3, 1);
+      await setActivePRForReposSingleWithAPI(repos.value, branchSource3, branchTarget3);
     }
     else if(radioboxBranch.value == "branchTarget4") {
-      await setDiffForReposSingleWithAPI(_repos, branchSource4, branchTarget4, 1);
-      await setActivePRForReposSingleWithAPI(_repos, branchSource4, branchTarget4);
+      await setDiffForReposSingleWithAPI(repos.value, branchSource4, branchTarget4, 1);
+      await setActivePRForReposSingleWithAPI(repos.value, branchSource4, branchTarget4);
     }
-
-    repos.value = _repos;
 
 
   } catch(error) {
-      getRepoErrorStatus.value = String(error);
+      // getRepoErrorStatus.value = String(error);
 
   }
 

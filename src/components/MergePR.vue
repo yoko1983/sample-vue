@@ -85,7 +85,7 @@ const mergePRSingleWithAPI =
 
           console.log('start');
           let status = '';
-          for (let i = 0; i < 50; i++){
+          for (let i = 0; i < 100; i++){
             await new Promise(s => setTimeout(s, 200));
 
             const responseGet = await axios.get(url + '/' + project  + '/_apis/git/repositories/' + pr.repoId +'/pullrequests/' + pr.id,
@@ -104,12 +104,14 @@ const mergePRSingleWithAPI =
 
             status = responseGet.data.status;
 
-            if(responseGet.data.status=='completed') {
+            if(status=='completed') {
+              pr.status=status;
+
               break;
             } 
 
           }
-      resolve(status);
+          resolve(status);
     } catch (error) {
       reject(error);
     }
@@ -130,17 +132,21 @@ const mergePRsSingle = async (workItemId: string) => {
             await mergePRSingleWithAPI(pr, workItemId);
 
             if(response!='completed') {
-              updatePRErrorStatus.value = 'Merge may have failed.';
+              updatePRErrorStatus.value = 'Merge may have failed.' + " ID=" + pr.id;
+              break;
             }
 
         } catch(error) {
-          updatePRErrorStatus.value = String(error);
+          updatePRErrorStatus.value = String(error) + " ID=" + pr.id;
+          break;
         }
         break;
       }
     }
-    await getPRsSingle(workItemId);
   }
+  wiPRsAllCheckbox.value=false;
+  wiPRsCheckbox.value.length=0;
+  await getPRsSingle(workItemId);
 
 
 
@@ -617,14 +623,13 @@ const setVersionAtRepoSingle = async (prs: PR[]) => {
 const getPRsSingle = async (workItemId: string) => {
 
   try {
-    let _prs: PR[] = await getWIReposSingleWithAPI(workItemId) as PR[];
+    let _prs = await getWIReposSingleWithAPI(workItemId) as PR[];
     _prs = await getPRsSingleWithAPI(workItemId, _prs) as PR[];
     _prs = await setPRDitailsSingleWithAPI(_prs) as PR[];
     _prs = await setRepoNameForReposSingleWithAPI(_prs) as PR[];
-    _prs = await setVersionAtRepoSingle(_prs) as PR[];
+    //_prs = await setVersionAtRepoSingle(_prs) as PR[];
 
     prs.value = _prs;
-
 
   } catch(error) {
       getPRErrorStatus.value = String(error);
@@ -671,7 +676,7 @@ const getStatus = (status: string, vote: number) => {
   }
 }
 
-const getBranch = (targetBranch: string, sourceBranch: string) => {
+const getBranch = (sourceBranch: string, targetBranch: string) => {
   if(targetBranch!='' || sourceBranch!='') {
     return sourceBranch + ' -> ' + targetBranch;
   }
@@ -686,7 +691,9 @@ const selectAllForWiPRsCheckbox = () => {
   wiPRsCheckbox.value.length=0;
   if(wiPRsAllCheckbox.value) {
     for(let pr of prs.value) {
-      wiPRsCheckbox.value.push(pr.id as never);
+      if(pr.status!="completed") {
+        wiPRsCheckbox.value.push(pr.id as never);
+      }
     }
   }
 
@@ -799,6 +806,9 @@ const selectAllForWiPRsCheckbox = () => {
         <button @click="mergePRs(workItemId); ">
           Merge
         </button>
+        <button @click="setVersionAtRepoSingle(prs); ">
+          GetVer
+        </button>
         <div class='errorStatusbox'>{{updatePRErrorStatus}}</div>
         <div class='successStatusbox'>{{debug}}</div>
       </div>
@@ -847,18 +857,18 @@ header {
 	padding:0px;
 }
 .repobox ul {
-	width:900px;
+	width:1100px;
   list-style: none;
 }
 .repobox ul li {
-	width:900px;
+	width:1100px;
 	margin-bottom:5px;
 	padding-left:1em;
 	text-indent:-1em;
 	line-height:1.4;
 }
 .repobox ul li label {
-	width:500px;
+	width:700px;
 	margin-bottom:5px;
 	padding-left:1em;
 	text-indent:-1em;
@@ -897,7 +907,7 @@ header {
 }
 .prVersionBox {
   display: inline-block; 
-	width:150px;
+	width:350px;
 	padding-left:5em;
 }
 
